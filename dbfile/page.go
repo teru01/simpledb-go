@@ -1,5 +1,7 @@
 package dbfile
 
+import "fmt"
+
 type Page struct {
 	buffer ByteBuffer
 }
@@ -17,8 +19,12 @@ func (p *Page) GetInt(offset int) int {
 	return p.buffer.GetInt(offset)
 }
 
-func (p *Page) SetInt(offset int, value int) {
+func (p *Page) SetInt(offset int, value int) error {
+	if offset < 0 || offset+intSize > p.buffer.Size() {
+		return fmt.Errorf("offset %d out of range [0, %d)", offset, p.buffer.Size()-intSize+1)
+	}
 	p.buffer.SetInt(offset, value)
+	return nil
 }
 
 func (p *Page) GetBytes(offset int) []byte {
@@ -29,18 +35,23 @@ func (p *Page) GetBytes(offset int) []byte {
 	return b
 }
 
-func (p *Page) SetBytes(offset int, bytes []byte) {
+func (p *Page) SetBytes(offset int, bytes []byte) error {
+	requiredSize := offset + intSize + len(bytes)
+	if offset < 0 || requiredSize > p.buffer.Size() {
+		return fmt.Errorf("offset %d with %d bytes exceeds page size %d", offset, len(bytes), p.buffer.Size())
+	}
 	p.buffer.SetPosition(offset)
 	p.buffer.SetCurrentInt(len(bytes))
 	p.buffer.SetCurrentByte(bytes)
+	return nil
 }
 
 func (p *Page) GetString(offset int) string {
 	return string(p.GetBytes(offset))
 }
 
-func (p *Page) SetString(offset int, value string) {
-	p.SetBytes(offset, []byte(value))
+func (p *Page) SetString(offset int, value string) error {
+	return p.SetBytes(offset, []byte(value))
 }
 
 func (p *Page) MaxLength(strLen int) int {

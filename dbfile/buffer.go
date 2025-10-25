@@ -28,6 +28,10 @@ func (b *ByteBuffer) SetPosition(position int) {
 	b.position = position
 }
 
+func (b *ByteBuffer) Size() int {
+	return len(b.buffer)
+}
+
 // 現在のポジションからintを取得してポジションを進める
 func (b *ByteBuffer) GetCurrentInt() int {
 	c := b.GetInt(b.Position())
