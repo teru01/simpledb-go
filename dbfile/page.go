@@ -23,8 +23,8 @@ func (p *Page) SetInt(offset int, value int) {
 
 func (p *Page) GetBytes(offset int) []byte {
 	p.buffer.SetPosition(offset)
-	len := p.buffer.GetCurrentInt()
-	b := make([]byte, len)
+	size := p.buffer.GetCurrentInt()
+	b := make([]byte, size)
 	p.buffer.GetCurrentByte(b)
 	return b
 }

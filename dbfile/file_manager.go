@@ -24,7 +24,7 @@ func NewFileManager(dbDirectory *os.File, blockSize int) (*FileManager, error) {
 
 	if dbDirectory == nil {
 		isNew = true
-		if err := os.MkdirAll(defaultDirectory, 0644); err != nil {
+		if err := os.MkdirAll(defaultDirectory, 0755); err != nil {
 			return nil, err
 		}
 
@@ -141,7 +141,7 @@ func (fm *FileManager) BlockSize() int {
 func (fm *FileManager) getFile(fileName string) (*os.File, error) {
 	file, ok := fm.openFiles[fileName]
 	if !ok {
-		f, err := os.OpenFile(filepath.Join(fm.dbDirectory.Name(), fileName), os.O_RDONLY|os.O_CREATE|os.O_SYNC, 0644)
+		f, err := os.OpenFile(filepath.Join(fm.dbDirectory.Name(), fileName), os.O_RDWR|os.O_CREATE|os.O_SYNC, 0644)
 		if err != nil {
 			return nil, err
 		}

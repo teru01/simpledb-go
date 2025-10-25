@@ -50,8 +50,9 @@ func (b *ByteBuffer) GetInt(offset int) int {
 func (b *ByteBuffer) SetInt(offset int, value int) {
 	if intSize == 8 {
 		binary.BigEndian.PutUint64(b.buffer[offset:offset+intSize], uint64(value))
+	} else {
+		binary.BigEndian.PutUint32(b.buffer[offset:offset+4], uint32(value))
 	}
-	binary.BigEndian.PutUint32(b.buffer[offset:offset+4], uint32(value))
 }
 
 func (b *ByteBuffer) GetBytes(offset, len int) []byte {
