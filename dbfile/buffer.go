@@ -1,4 +1,4 @@
-package file
+package dbfile
 
 import (
 	"encoding/binary"

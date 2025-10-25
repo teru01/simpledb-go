@@ -1,9 +1,10 @@
-package file
+package dbfile
 
 type Page struct {
 	buffer ByteBuffer
 }
 
+// IO Bufferを使わないのでパフォーマンスどうか？
 func NewPage(blockSize int) Page {
 	return Page{buffer: NewByteBuffer(blockSize)}
 }
