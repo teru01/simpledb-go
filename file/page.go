@@ -1,21 +1,52 @@
 package file
 
-import "encoding/binary"
-
-const Charset = "ascii"
-
 type Page struct {
-	buffer []byte
+	buffer ByteBuffer
 }
 
 func NewPage(blockSize int) Page {
-	return Page{buffer: make([]byte, blockSize)}
+	return Page{buffer: NewByteBuffer(blockSize)}
 }
 
 func NewPageFromBytes(bytes []byte) Page {
-	return Page{buffer: bytes}
+	return Page{buffer: NewByteBufferFromBytes(bytes)}
 }
 
 func (p *Page) GetInt(offset int) int {
-	return int(binary.BigEndian.Uint32(p.buffer[offset : offset+4]))
+	return p.buffer.GetInt(offset)
+}
+
+func (p *Page) SetInt(offset int, value int) {
+	p.buffer.SetInt(offset, value)
+}
+
+func (p *Page) GetBytes(offset int) []byte {
+	p.buffer.SetPosition(offset)
+	len := p.buffer.GetCurrentInt()
+	b := make([]byte, len)
+	p.buffer.GetCurrentByte(b)
+	return b
+}
+
+func (p *Page) SetBytes(offset int, bytes []byte) {
+	p.buffer.SetPosition(offset)
+	p.buffer.SetCurrentInt(len(bytes))
+	p.buffer.SetCurrentByte(bytes)
+}
+
+func (p *Page) GetString(offset int) string {
+	return string(p.GetBytes(offset))
+}
+
+func (p *Page) SetString(offset int, value string) {
+	p.SetBytes(offset, []byte(value))
+}
+
+func (p *Page) MaxLength(strLen int) int {
+	return intSize + strLen*4
+}
+
+func (p *Page) pageBuffer() ByteBuffer {
+	p.buffer.SetPosition(0)
+	return p.buffer
 }
