@@ -134,6 +134,7 @@ func (fm *FileManager) IsNew() bool {
 	return fm.isNew
 }
 
+// fixed value
 func (fm *FileManager) BlockSize() int {
 	return fm.blockSize
 }
