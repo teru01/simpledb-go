@@ -2,6 +2,7 @@ package dblog
 
 import (
 	"fmt"
+	"iter"
 	"sync"
 
 	"github.com/teru01/simpledb-go/dbfile"
@@ -113,4 +114,29 @@ func (lm *LogManager) appendNewBlock() (dbfile.BlockID, error) {
 		return dbfile.BlockID{}, err
 	}
 	return block, nil
+}
+
+func (lm *LogManager) Iterator() (iter.Seq2[[]byte, error], error) {
+	if err := lm.flush(); err != nil {
+		return nil, fmt.Errorf("failed to create iter")
+	}
+	return func(yield func([]byte, error) bool) {
+		var iterError error
+		for i := lm.currentBlock.BlockNum(); i >= 0; i-- {
+			currentBlock := dbfile.NewBlockID(lm.logFileName, i)
+			p := dbfile.NewPage(lm.fileManager.BlockSize())
+			if err := lm.fileManager.Read(currentBlock, p); err != nil {
+				iterError = fmt.Errorf("failed to read current block: %w", err)
+				if !yield(nil, iterError) {
+					return
+				}
+			}
+			boundary := p.GetInt(0)
+			for j := boundary; j < p.Length(); j += p.GetInt(j) + size.IntSize {
+				if !yield(p.GetBytes(j), nil) {
+					return
+				}
+			}
+		}
+	}, nil
 }

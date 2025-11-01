@@ -35,6 +35,7 @@ func (p *Page) GetBytes(offset int) []byte {
 	return b
 }
 
+// bufferにbyte length, payloadを書き込む. len(int)+len(bytes)の長さのバッファを消費する
 func (p *Page) SetBytes(offset int, bytes []byte) error {
 	requiredSize := offset + intSize + len(bytes)
 	if offset < 0 || requiredSize > p.buffer.Size() {
@@ -61,4 +62,8 @@ func (p *Page) MaxLength(strLen int) int {
 func (p *Page) pageBuffer() ByteBuffer {
 	p.buffer.SetPosition(0)
 	return p.buffer
+}
+
+func (p *Page) Length() int {
+	return p.buffer.Size()
 }
