@@ -2,11 +2,14 @@ package dblog
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/teru01/simpledb-go/dbfile"
+	"github.com/teru01/simpledb-go/size"
 )
 
 type LogManager struct {
+	mu           sync.Mutex
 	fileManager  *dbfile.FileManager
 	logFileName  string
 	logPage      dbfile.Page
@@ -16,6 +19,11 @@ type LogManager struct {
 }
 
 func NewLogManager(fm *dbfile.FileManager, logFileName string) (*LogManager, error) {
+	var (
+		currentBlock dbfile.BlockID
+		err          error
+	)
+
 	b := make([]byte, fm.BlockSize())
 	p := dbfile.NewPageFromBytes(b)
 
@@ -30,14 +38,70 @@ func NewLogManager(fm *dbfile.FileManager, logFileName string) (*LogManager, err
 		return nil, fmt.Errorf("failed to get file block length: %w", err)
 	}
 
-	var cb int
-	// if logSize == 0 {
-	// 	cb =
-	// }
+	if logSize == 0 {
+		currentBlock, err = lm.appendNewBlock()
+	} else {
+		currentBlock = dbfile.NewBlockID(lm.logFileName, logSize-1)
+		err = lm.fileManager.Read(currentBlock, lm.logPage)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to init logPage: %w", err)
+	}
 
+	lm.currentBlock = currentBlock
+
+	return &lm, nil
 }
 
-func (lm *LogManager) AppendNewBlock() (dbfile.BlockID, error) {
+func (lm *LogManager) FlushWithLSN(lsn int) error {
+	if lsn <= lm.lastSavedLSN {
+		// already saved
+		return nil
+	}
+	return lm.flush()
+}
+
+func (lm *LogManager) flush() error {
+	if err := lm.fileManager.Write(lm.currentBlock, lm.logPage); err != nil {
+		return fmt.Errorf("failed to flush to block %v: %w", lm.currentBlock, err)
+	}
+	lm.lastSavedLSN = lm.latestLSN
+	return nil
+}
+
+func (lm *LogManager) Append(logRecord []byte) (int, error) {
+	lm.mu.Lock()
+	defer lm.mu.Unlock()
+
+	boundary := lm.logPage.GetInt(0)
+	recordSize := len(logRecord)
+	bytesNeeded := recordSize + size.IntSize
+	if boundary-bytesNeeded < size.IntSize {
+		// はみ出る
+		if err := lm.flush(); err != nil {
+			return 0, fmt.Errorf("failed to Append: %w", err)
+		}
+		blk, err := lm.appendNewBlock()
+		if err != nil {
+			return 0, fmt.Errorf("failed to Append: %w", err)
+		}
+		lm.currentBlock = blk
+		boundary = lm.logPage.GetInt(0)
+	}
+
+	recordPos := boundary - bytesNeeded
+	if err := lm.logPage.SetBytes(recordPos, logRecord); err != nil {
+		return 0, err
+	}
+	if err := lm.logPage.SetInt(0, recordPos); err != nil {
+		return 0, err
+	}
+	lm.latestLSN++
+	return lm.latestLSN, nil
+}
+
+// log fileに1ブロック追加しページを初期化する
+func (lm *LogManager) appendNewBlock() (dbfile.BlockID, error) {
 	block, err := lm.fileManager.Append(lm.logFileName)
 	if err != nil {
 		return dbfile.BlockID{}, fmt.Errorf("faile to append block to %s: %w", lm.logFileName, err)

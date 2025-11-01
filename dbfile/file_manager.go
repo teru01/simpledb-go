@@ -118,6 +118,7 @@ func (fm *FileManager) Append(fileName string) (BlockID, error) {
 	return newBlockID, nil
 }
 
+// fileNameのファイルのブロック数を取得.ブロック単位で書き込まれるので切り捨てても問題ない
 func (fm *FileManager) FileBlockLength(fileName string) (int, error) {
 	file, err := fm.getFile(fileName)
 	if err != nil {
