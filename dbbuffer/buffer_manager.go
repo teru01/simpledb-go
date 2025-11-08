@@ -1,33 +1,34 @@
 package dbbuffer
 
 import (
-	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/teru01/simpledb-go/dbfile"
 	"github.com/teru01/simpledb-go/dblog"
 )
 
-const MAX_WAIT_TIME = 10000
+const MAX_WAIT_TIME = 10000 * time.Millisecond
 
 type BufferManager struct {
-	mu            sync.Mutex
-	unpinNotifier chan struct{}
-	bufferPool    []Buffer
-	numAvailable  int
+	mu           sync.Mutex
+	cond         *sync.Cond
+	bufferPool   []Buffer
+	numAvailable int
 }
 
-func NewBufferManager(fm *dbfile.FileManager, lm *dblog.LogManager, numBuffers int) BufferManager {
+func NewBufferManager(fm *dbfile.FileManager, lm *dblog.LogManager, numBuffers int) *BufferManager {
 	bufs := make([]Buffer, numBuffers)
 	for i := range numBuffers {
 		bufs[i] = NewBuffer(fm, lm)
 	}
-	return BufferManager{
-		unpinNotifier: make(chan struct{}),
-		bufferPool:    bufs,
-		numAvailable:  numBuffers,
+	bm := &BufferManager{
+		bufferPool:   bufs,
+		numAvailable: numBuffers,
 	}
+	bm.cond = sync.NewCond(&bm.mu)
+	return bm
 }
 
 func (bm *BufferManager) Available() int {
@@ -57,39 +58,37 @@ func (bm *BufferManager) Unpin(buffer *Buffer) {
 	buffer.unpin()
 	if !buffer.IsPinned() {
 		bm.numAvailable++
-		bm.unpinNotifier <- struct{}{}
+		bm.cond.Broadcast()
 	}
 }
 
 func (bm *BufferManager) Pin(blk dbfile.BlockID) (*Buffer, error) {
-	// 最大max_timeまつ
-	// tryToPinが失敗したら1つunpinされるのを待つ
-	buf, err := bm.tryToPin(blk)
-	if err != nil {
-		return nil, fmt.Errorf("failed to pin: %w", err)
-	}
-	if buf == nil {
-		ctx, cancel := context.WithTimeout(context.Background(), MAX_WAIT_TIME)
-		defer cancel()
-		select {
-		case <-ctx.Done():
-			return nil, fmt.Errorf("failed to pin. It took too long to get an unpinned buffer: %w", ctx.Err())
-		case <-bm.unpinNotifier:
-			buf, err = bm.tryToPin(blk)
-			if err != nil {
-				return nil, fmt.Errorf("failed to pin: %w", err)
-			}
-			if buf == nil {
-				return nil, fmt.Errorf("failed to pin. failed to get an unpinned buf")
-			}
-		}
-	}
-	return buf, nil
-}
-
-func (bm *BufferManager) tryToPin(blk dbfile.BlockID) (*Buffer, error) {
 	bm.mu.Lock()
 	defer bm.mu.Unlock()
+
+	// 最大max_timeまつ
+	// tryToPinが失敗したら1つunpinされるのを待つ
+	startTime := time.Now()
+	for {
+		buf, err := bm.tryToPinLocked(blk)
+		if err != nil {
+			return nil, fmt.Errorf("failed to pin: %w", err)
+		}
+		if buf != nil {
+			return buf, nil
+		}
+
+		// タイムアウトチェック
+		if time.Since(startTime) >= MAX_WAIT_TIME {
+			return nil, fmt.Errorf("failed to pin. It took too long to get an unpinned buffer")
+		}
+
+		// bufferが利用可能になるまで待つ
+		bm.cond.Wait()
+	}
+}
+
+func (bm *BufferManager) tryToPinLocked(blk dbfile.BlockID) (*Buffer, error) {
 	buf := bm.findExistingBuffer(blk)
 	if buf == nil {
 		buf = bm.chooseUnpinnedBuffer()
