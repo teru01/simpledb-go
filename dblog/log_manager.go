@@ -54,15 +54,17 @@ func NewLogManager(fm *dbfile.FileManager, logFileName string) (*LogManager, err
 	return &lm, nil
 }
 
+// 指定のlog sequenceまでをflushする
 func (lm *LogManager) FlushWithLSN(lsn int) error {
 	if lsn <= lm.lastSavedLSN {
 		// already saved
 		return nil
 	}
-	return lm.flush()
+	return lm.Flush()
 }
 
-func (lm *LogManager) flush() error {
+// 最新のlog sequenceまでFlushする
+func (lm *LogManager) Flush() error {
 	if err := lm.fileManager.Write(lm.currentBlock, lm.logPage); err != nil {
 		return fmt.Errorf("failed to flush to block %v: %w", lm.currentBlock, err)
 	}
@@ -79,7 +81,7 @@ func (lm *LogManager) Append(logRecord []byte) (int, error) {
 	bytesNeeded := recordSize + size.IntSize
 	if boundary-bytesNeeded < size.IntSize {
 		// はみ出る
-		if err := lm.flush(); err != nil {
+		if err := lm.Flush(); err != nil {
 			return 0, fmt.Errorf("failed to Append: %w", err)
 		}
 		blk, err := lm.appendNewBlock()
@@ -117,7 +119,7 @@ func (lm *LogManager) appendNewBlock() (dbfile.BlockID, error) {
 }
 
 func (lm *LogManager) Iterator() (iter.Seq2[[]byte, error], error) {
-	if err := lm.flush(); err != nil {
+	if err := lm.Flush(); err != nil {
 		return nil, fmt.Errorf("failed to create iter")
 	}
 	return func(yield func([]byte, error) bool) {
