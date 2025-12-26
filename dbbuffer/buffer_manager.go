@@ -1,6 +1,7 @@
 package dbbuffer
 
 import (
+	"container/list"
 	"context"
 	"fmt"
 	"sync"
@@ -16,19 +17,26 @@ type BufferManager struct {
 	mu                       sync.Mutex
 	availabilityNotification chan struct{}
 	bufferPool               []Buffer
-	numAvailable             int
+	// unpinされた時間を見たdequeue unpinされると左からenq, replaceは右からdequeされていく
+	// 常にclear unpinされたもの詰まっていて、右側が最も昔にclear unpinされたもの、左側が新しいもの 初期状態では全部clear unpinされたとみなせる
+	lru          *list.List
+	numAvailable int
 }
 
 func NewBufferManager(fm *dbfile.FileManager, lm *dblog.LogManager, numBuffers int) *BufferManager {
 	bufs := make([]Buffer, numBuffers)
+	lru := list.New()
 	for i := range numBuffers {
-		bufs[i] = NewBuffer(fm, lm)
+		bufs[i] = NewBuffer(i, fm, lm)
+		lru.PushFront(i)
 	}
 	bm := &BufferManager{
 		bufferPool:               bufs,
 		numAvailable:             numBuffers,
 		availabilityNotification: make(chan struct{}, 1),
+		lru:                      lru,
 	}
+
 	return bm
 }
 
@@ -59,6 +67,7 @@ func (bm *BufferManager) Unpin(buffer *Buffer) {
 	buffer.unpin()
 	if !buffer.IsPinned() {
 		bm.numAvailable++
+		bm.lru.PushFront(buffer.ID)
 		select {
 		case bm.availabilityNotification <- struct{}{}:
 		default:
@@ -116,6 +125,14 @@ func (bm *BufferManager) tryToPinLocked(blk dbfile.BlockID) (*Buffer, error) {
 func (bm *BufferManager) findExistingBuffer(blk dbfile.BlockID) *Buffer {
 	for i := range bm.bufferPool {
 		if bm.bufferPool[i].BlockID().Equals(blk) {
+			for e := bm.lru.Front(); e != nil; {
+				id, _ := e.Value.(int)
+				if id == bm.bufferPool[i].ID {
+					bm.lru.Remove(e)
+					break
+				}
+				e = e.Next()
+			}
 			return &bm.bufferPool[i]
 		}
 	}
@@ -123,10 +140,14 @@ func (bm *BufferManager) findExistingBuffer(blk dbfile.BlockID) *Buffer {
 }
 
 func (bm *BufferManager) chooseUnpinnedBuffer() *Buffer {
-	for i := range bm.bufferPool {
-		if !bm.bufferPool[i].IsPinned() {
-			return &bm.bufferPool[i]
-		}
+	back := bm.lru.Back()
+	if back == nil {
+		return nil
 	}
-	return nil
+	id, ok := back.Value.(int)
+	if !ok {
+		return nil
+	}
+	bm.lru.Remove(back)
+	return &bm.bufferPool[id]
 }

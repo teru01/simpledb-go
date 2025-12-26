@@ -8,6 +8,7 @@ import (
 )
 
 type Buffer struct {
+	ID          int
 	fileManager *dbfile.FileManager
 	logManager  *dblog.LogManager
 	state       bufferState
@@ -21,8 +22,9 @@ type bufferState struct {
 	lsn      int
 }
 
-func NewBuffer(fm *dbfile.FileManager, lm *dblog.LogManager) Buffer {
+func NewBuffer(id int, fm *dbfile.FileManager, lm *dblog.LogManager) Buffer {
 	return Buffer{
+		ID:          id,
 		fileManager: fm,
 		logManager:  lm,
 		state: bufferState{
