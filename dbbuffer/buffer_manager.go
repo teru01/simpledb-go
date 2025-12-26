@@ -1,6 +1,7 @@
 package dbbuffer
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
@@ -12,10 +13,10 @@ import (
 const MAX_WAIT_TIME = 10000 * time.Millisecond
 
 type BufferManager struct {
-	mu           sync.Mutex
-	cond         *sync.Cond
-	bufferPool   []Buffer
-	numAvailable int
+	mu                       sync.Mutex
+	availabilityNotification chan struct{}
+	bufferPool               []Buffer
+	numAvailable             int
 }
 
 func NewBufferManager(fm *dbfile.FileManager, lm *dblog.LogManager, numBuffers int) *BufferManager {
@@ -24,10 +25,10 @@ func NewBufferManager(fm *dbfile.FileManager, lm *dblog.LogManager, numBuffers i
 		bufs[i] = NewBuffer(fm, lm)
 	}
 	bm := &BufferManager{
-		bufferPool:   bufs,
-		numAvailable: numBuffers,
+		bufferPool:               bufs,
+		numAvailable:             numBuffers,
+		availabilityNotification: make(chan struct{}, 1),
 	}
-	bm.cond = sync.NewCond(&bm.mu)
 	return bm
 }
 
@@ -58,19 +59,27 @@ func (bm *BufferManager) Unpin(buffer *Buffer) {
 	buffer.unpin()
 	if !buffer.IsPinned() {
 		bm.numAvailable++
-		bm.cond.Broadcast()
+		select {
+		case bm.availabilityNotification <- struct{}{}:
+		default:
+			// pinを待機してるものがいない
+		}
 	}
 }
 
 func (bm *BufferManager) Pin(blk dbfile.BlockID) (*Buffer, error) {
-	bm.mu.Lock()
-	defer bm.mu.Unlock()
-
 	// 最大max_timeまつ
 	// tryToPinが失敗したら1つunpinされるのを待つ
-	startTime := time.Now()
+	ctx, cancel := context.WithTimeout(context.Background(), MAX_WAIT_TIME)
+	defer cancel()
+
 	for {
-		buf, err := bm.tryToPinLocked(blk)
+		buf, err := func() (*Buffer, error) {
+			bm.mu.Lock()
+			defer bm.mu.Unlock()
+			return bm.tryToPinLocked(blk)
+		}()
+
 		if err != nil {
 			return nil, fmt.Errorf("failed to pin: %w", err)
 		}
@@ -78,13 +87,11 @@ func (bm *BufferManager) Pin(blk dbfile.BlockID) (*Buffer, error) {
 			return buf, nil
 		}
 
-		// タイムアウトチェック
-		if time.Since(startTime) >= MAX_WAIT_TIME {
+		select {
+		case <-bm.availabilityNotification:
+		case <-ctx.Done():
 			return nil, fmt.Errorf("failed to pin. It took too long to get an unpinned buffer")
 		}
-
-		// bufferが利用可能になるまで待つ
-		bm.cond.Wait()
 	}
 }
 
