@@ -42,11 +42,11 @@ func (bm *BufferManager) Available() int {
 func (bm *BufferManager) FlushAll(txNum int) error {
 	bm.mu.Lock()
 	defer bm.mu.Unlock()
-	for i, buf := range bm.bufferPool {
-		if buf.state.txNum != txNum {
+	for i := range bm.bufferPool {
+		if bm.bufferPool[i].state.txNum != txNum {
 			continue
 		}
-		if err := buf.flush(); err != nil {
+		if err := bm.bufferPool[i].flush(); err != nil {
 			return fmt.Errorf("failed to flush [%v]: %w", i, err)
 		}
 	}
@@ -114,18 +114,18 @@ func (bm *BufferManager) tryToPinLocked(blk dbfile.BlockID) (*Buffer, error) {
 }
 
 func (bm *BufferManager) findExistingBuffer(blk dbfile.BlockID) *Buffer {
-	for _, buf := range bm.bufferPool {
-		if buf.BlockID().Equals(blk) {
-			return &buf
+	for i := range bm.bufferPool {
+		if bm.bufferPool[i].BlockID().Equals(blk) {
+			return &bm.bufferPool[i]
 		}
 	}
 	return nil
 }
 
 func (bm *BufferManager) chooseUnpinnedBuffer() *Buffer {
-	for _, buf := range bm.bufferPool {
-		if !buf.IsPinned() {
-			return &buf
+	for i := range bm.bufferPool {
+		if !bm.bufferPool[i].IsPinned() {
+			return &bm.bufferPool[i]
 		}
 	}
 	return nil

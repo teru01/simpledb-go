@@ -62,7 +62,7 @@ func NewLogManager(fm *dbfile.FileManager, logFileName string) (*LogManager, err
 	return &lm, nil
 }
 
-// 指定のlog sequenceまでをflushする
+// 指定のlog sequenceまでのflushを保証する
 func (lm *LogManager) FlushWithLSN(lsn int) error {
 	if lsn <= lm.state.lastSavedLSN {
 		// already saved
