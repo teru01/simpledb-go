@@ -10,9 +10,13 @@ import (
 )
 
 type LogManager struct {
-	mu           sync.Mutex
-	fileManager  *dbfile.FileManager
-	logFileName  string
+	mu          sync.Mutex
+	fileManager *dbfile.FileManager
+	logFileName string
+	state       logManagerState
+}
+
+type logManagerState struct {
 	logPage      dbfile.Page
 	currentBlock dbfile.BlockID
 	latestLSN    int
@@ -25,13 +29,9 @@ func NewLogManager(fm *dbfile.FileManager, logFileName string) (*LogManager, err
 		err          error
 	)
 
-	b := make([]byte, fm.BlockSize())
-	p := dbfile.NewPageFromBytes(b)
-
 	lm := LogManager{
 		fileManager: fm,
 		logFileName: logFileName,
-		logPage:     p,
 	}
 
 	logSize, err := fm.FileBlockLength(logFileName)
@@ -39,24 +39,32 @@ func NewLogManager(fm *dbfile.FileManager, logFileName string) (*LogManager, err
 		return nil, fmt.Errorf("failed to get file block length: %w", err)
 	}
 
+	b := make([]byte, fm.BlockSize())
+	p := dbfile.NewPageFromBytes(b)
+
 	if logSize == 0 {
-		currentBlock, err = lm.appendNewBlock()
+		currentBlock, err = lm.appendNewBlock(p)
 	} else {
 		currentBlock = dbfile.NewBlockID(lm.logFileName, logSize-1)
-		err = lm.fileManager.Read(currentBlock, lm.logPage)
+		err = lm.fileManager.Read(currentBlock, p)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to init logPage: %w", err)
 	}
 
-	lm.currentBlock = currentBlock
+	lm.state = logManagerState{
+		logPage:      p,
+		currentBlock: currentBlock,
+		latestLSN:    0,
+		lastSavedLSN: 0,
+	}
 
 	return &lm, nil
 }
 
 // 指定のlog sequenceまでをflushする
 func (lm *LogManager) FlushWithLSN(lsn int) error {
-	if lsn <= lm.lastSavedLSN {
+	if lsn <= lm.state.lastSavedLSN {
 		// already saved
 		return nil
 	}
@@ -65,10 +73,10 @@ func (lm *LogManager) FlushWithLSN(lsn int) error {
 
 // 最新のlog sequenceまでFlushする
 func (lm *LogManager) Flush() error {
-	if err := lm.fileManager.Write(lm.currentBlock, lm.logPage); err != nil {
-		return fmt.Errorf("failed to flush to block %v: %w", lm.currentBlock, err)
+	if err := lm.fileManager.Write(lm.state.currentBlock, lm.state.logPage); err != nil {
+		return fmt.Errorf("failed to flush to block %v: %w", lm.state.currentBlock, err)
 	}
-	lm.lastSavedLSN = lm.latestLSN
+	lm.state.lastSavedLSN = lm.state.latestLSN
 	return nil
 }
 
@@ -76,7 +84,7 @@ func (lm *LogManager) Append(logRecord []byte) (int, error) {
 	lm.mu.Lock()
 	defer lm.mu.Unlock()
 
-	boundary := lm.logPage.GetInt(0)
+	boundary := lm.state.logPage.GetInt(0)
 	recordSize := len(logRecord)
 	bytesNeeded := recordSize + size.IntSize
 	if boundary-bytesNeeded < size.IntSize {
@@ -84,35 +92,35 @@ func (lm *LogManager) Append(logRecord []byte) (int, error) {
 		if err := lm.Flush(); err != nil {
 			return 0, fmt.Errorf("failed to Append: %w", err)
 		}
-		blk, err := lm.appendNewBlock()
+		blk, err := lm.appendNewBlock(lm.state.logPage)
 		if err != nil {
 			return 0, fmt.Errorf("failed to Append: %w", err)
 		}
-		lm.currentBlock = blk
-		boundary = lm.logPage.GetInt(0)
+		lm.state.currentBlock = blk
+		boundary = lm.state.logPage.GetInt(0)
 	}
 
 	recordPos := boundary - bytesNeeded
-	if err := lm.logPage.SetBytes(recordPos, logRecord); err != nil {
+	if err := lm.state.logPage.SetBytes(recordPos, logRecord); err != nil {
 		return 0, err
 	}
-	if err := lm.logPage.SetInt(0, recordPos); err != nil {
+	if err := lm.state.logPage.SetInt(0, recordPos); err != nil {
 		return 0, err
 	}
-	lm.latestLSN++
-	return lm.latestLSN, nil
+	lm.state.latestLSN++
+	return lm.state.latestLSN, nil
 }
 
 // log fileに1ブロック追加しページを初期化する
-func (lm *LogManager) appendNewBlock() (dbfile.BlockID, error) {
+func (lm *LogManager) appendNewBlock(p dbfile.Page) (dbfile.BlockID, error) {
 	block, err := lm.fileManager.Append(lm.logFileName)
 	if err != nil {
 		return dbfile.BlockID{}, fmt.Errorf("faile to append block to %s: %w", lm.logFileName, err)
 	}
-	if err := lm.logPage.SetInt(0, lm.fileManager.BlockSize()); err != nil {
+	if err := p.SetInt(0, lm.fileManager.BlockSize()); err != nil {
 		return dbfile.BlockID{}, err
 	}
-	if err := lm.fileManager.Write(block, lm.logPage); err != nil {
+	if err := lm.fileManager.Write(block, p); err != nil {
 		return dbfile.BlockID{}, err
 	}
 	return block, nil
@@ -124,7 +132,7 @@ func (lm *LogManager) Iterator() (iter.Seq2[[]byte, error], error) {
 	}
 	return func(yield func([]byte, error) bool) {
 		var iterError error
-		for i := lm.currentBlock.BlockNum(); i >= 0; i-- {
+		for i := lm.state.currentBlock.BlockNum(); i >= 0; i-- {
 			currentBlock := dbfile.NewBlockID(lm.logFileName, i)
 			p := dbfile.NewPage(lm.fileManager.BlockSize())
 			if err := lm.fileManager.Read(currentBlock, p); err != nil {

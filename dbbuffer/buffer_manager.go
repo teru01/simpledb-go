@@ -42,7 +42,7 @@ func (bm *BufferManager) FlushAll(txNum int) error {
 	bm.mu.Lock()
 	defer bm.mu.Unlock()
 	for i, buf := range bm.bufferPool {
-		if buf.txNum != txNum {
+		if buf.state.txNum != txNum {
 			continue
 		}
 		if err := buf.flush(); err != nil {
