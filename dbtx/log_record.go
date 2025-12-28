@@ -64,6 +64,19 @@ func (l checkpointLogRecord) String() string {
 	return fmt.Sprintf("{\"kind\": \"checkpoint\", \"txNum\": %d}", l.txNumber())
 }
 
+func WriteCheckpointToLog(lm *dblog.LogManager) (int, error) {
+	b := make([]byte, size.IntSize)
+	page := dbfile.NewPageFromBytes(b)
+	if err := page.SetInt(0, CHECKPOINT); err != nil {
+		return 0, fmt.Errorf("failed to set op: %w", err)
+	}
+	lsn, err := lm.Append(b)
+	if err != nil {
+		return 0, fmt.Errorf("failed to write checkpoint to log: %w", err)
+	}
+	return lsn, nil
+}
+
 type startLogRecord struct {
 	txNum int
 }
@@ -88,6 +101,23 @@ func (l startLogRecord) String() string {
 
 func (l startLogRecord) undo(txNumber int) {
 	// no-op
+}
+
+func WriteStartToLog(lm *dblog.LogManager, txNum int) (int, error) {
+	b := make([]byte, size.IntSize)
+	txPos := size.IntSize
+	page := dbfile.NewPageFromBytes(b)
+	if err := page.SetInt(0, START); err != nil {
+		return 0, fmt.Errorf("failed to set op: %w", err)
+	}
+	if err := page.SetInt(txPos, txNum); err != nil {
+		return 0, fmt.Errorf("failed to set txNum: %w", err)
+	}
+	lsn, err := lm.Append(b)
+	if err != nil {
+		return 0, fmt.Errorf("failed to write start to log: %w", err)
+	}
+	return lsn, nil
 }
 
 type commitLogRecord struct {
@@ -116,6 +146,23 @@ func (l commitLogRecord) String() string {
 	return fmt.Sprintf("{\"kind\": \"commit\", \"txNum\": %d}", l.txNumber())
 }
 
+func WriteCommitToLog(lm *dblog.LogManager, txNum int) (int, error) {
+	b := make([]byte, size.IntSize)
+	txPos := size.IntSize
+	page := dbfile.NewPageFromBytes(b)
+	if err := page.SetInt(0, COMMIT); err != nil {
+		return 0, fmt.Errorf("failed to set op: %w", err)
+	}
+	if err := page.SetInt(txPos, txNum); err != nil {
+		return 0, fmt.Errorf("failed to set txNum: %w", err)
+	}
+	lsn, err := lm.Append(b)
+	if err != nil {
+		return 0, fmt.Errorf("failed to write commit to log: %w", err)
+	}
+	return lsn, nil
+}
+
 type rollbackLogRecord struct {
 	txNum int
 }
@@ -140,6 +187,23 @@ func (l rollbackLogRecord) String() string {
 
 func (l rollbackLogRecord) undo(txNumber int) {
 	// no-op
+}
+
+func WriteRollbackToLog(lm *dblog.LogManager, txNum int) (int, error) {
+	b := make([]byte, size.IntSize)
+	txPos := size.IntSize
+	page := dbfile.NewPageFromBytes(b)
+	if err := page.SetInt(0, ROLLBACK); err != nil {
+		return 0, fmt.Errorf("failed to set op: %w", err)
+	}
+	if err := page.SetInt(txPos, txNum); err != nil {
+		return 0, fmt.Errorf("failed to set txNum: %w", err)
+	}
+	lsn, err := lm.Append(b)
+	if err != nil {
+		return 0, fmt.Errorf("failed to write rollback to log: %w", err)
+	}
+	return lsn, nil
 }
 
 type setIntLogRecord struct {
