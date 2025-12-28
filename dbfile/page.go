@@ -59,6 +59,10 @@ func (p *Page) MaxLength(strLen int) int {
 	return intSize + strLen*4
 }
 
+func MaxStringLengthOnPage(strLen int) int {
+	return intSize + strLen*4
+}
+
 func (p *Page) pageBuffer() ByteBuffer {
 	p.buffer.SetPosition(0)
 	return p.buffer

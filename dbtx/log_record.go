@@ -1,7 +1,10 @@
 package dbtx
 
 import (
+	"fmt"
+
 	"github.com/teru01/simpledb-go/dbfile"
+	"github.com/teru01/simpledb-go/dblog"
 	"github.com/teru01/simpledb-go/size"
 )
 
@@ -57,6 +60,10 @@ func (l checkpointLogRecord) undo(txNumber int) {
 	// no-op
 }
 
+func (l checkpointLogRecord) String() string {
+	return fmt.Sprintf("{\"kind\": \"checkpoint\", \"txNum\": %d}", l.txNumber())
+}
+
 type startLogRecord struct {
 	txNum int
 }
@@ -73,6 +80,10 @@ func (l startLogRecord) op() int {
 
 func (l startLogRecord) txNumber() int {
 	return l.txNum
+}
+
+func (l startLogRecord) String() string {
+	return fmt.Sprintf("{\"kind\": \"start\", \"txNum\": %d}", l.txNumber())
 }
 
 func (l startLogRecord) undo(txNumber int) {
@@ -101,6 +112,10 @@ func (l commitLogRecord) undo(txNumber int) {
 	// no-op
 }
 
+func (l commitLogRecord) String() string {
+	return fmt.Sprintf("{\"kind\": \"commit\", \"txNum\": %d}", l.txNumber())
+}
+
 type rollbackLogRecord struct {
 	txNum int
 }
@@ -117,6 +132,10 @@ func (l rollbackLogRecord) op() int {
 
 func (l rollbackLogRecord) txNumber() int {
 	return l.txNum
+}
+
+func (l rollbackLogRecord) String() string {
+	return fmt.Sprintf("{\"kind\": \"rollback\", \"txNum\": %d}", l.txNumber())
 }
 
 func (l rollbackLogRecord) undo(txNumber int) {
@@ -154,6 +173,44 @@ func (l setIntLogRecord) undo(txNumber int) {
 	// no-op
 }
 
+func (l setIntLogRecord) String() string {
+	return fmt.Sprintf("{\"kind\": \"setInt\", \"txNum\": %d, \"blockID\": %s, \"offset\": %d, \"value\": %d}", l.txNumber(), l.blockID.String(), l.offset, l.value)
+}
+
+func WriteIntToLog(lm *dblog.LogManager, txNum int, blockID dbfile.BlockID, offset int, value int) (int, error) {
+	txPos := size.IntSize
+	fileNamePos := txPos + size.IntSize
+	blockPos := fileNamePos + dbfile.MaxStringLengthOnPage(len(blockID.FileName()))
+	offsetPos := blockPos + size.IntSize
+	valuePos := offsetPos + size.IntSize
+	recordLen := valuePos + size.IntSize
+	b := make([]byte, recordLen)
+	page := dbfile.NewPageFromBytes(b)
+	if err := page.SetInt(0, SETINT); err != nil {
+		return 0, fmt.Errorf("failed to set op: %w", err)
+	}
+	if err := page.SetInt(txPos, txNum); err != nil {
+		return 0, fmt.Errorf("failed to set txNum: %w", err)
+	}
+	if err := page.SetString(fileNamePos, blockID.FileName()); err != nil {
+		return 0, fmt.Errorf("failed to set blockID: %w", err)
+	}
+	if err := page.SetInt(blockPos, blockID.BlockNum()); err != nil {
+		return 0, fmt.Errorf("failed to set blockNum: %w", err)
+	}
+	if err := page.SetInt(offsetPos, offset); err != nil {
+		return 0, fmt.Errorf("failed to set offset: %w", err)
+	}
+	if err := page.SetInt(valuePos, value); err != nil {
+		return 0, fmt.Errorf("failed to set value: %w", err)
+	}
+	lsn, err := lm.Append(b)
+	if err != nil {
+		return 0, fmt.Errorf("failed to append log record: %w", err)
+	}
+	return lsn, nil
+}
+
 type setStringLogRecord struct {
 	txNum   int
 	blockID dbfile.BlockID
@@ -183,4 +240,42 @@ func (l setStringLogRecord) txNumber() int {
 
 func (l setStringLogRecord) undo(txNumber int) {
 	// no-op
+}
+
+func (l setStringLogRecord) String() string {
+	return fmt.Sprintf("{\"kind\": \"setString\", \"txNum\": %d, \"blockID\": %s, \"offset\": %d, \"value\": %s}", l.txNumber(), l.blockID.String(), l.offset, l.value)
+}
+
+func WriteStringToLog(lm *dblog.LogManager, txNum int, blockID dbfile.BlockID, offset int, value string) (int, error) {
+	txPos := size.IntSize
+	fileNamePos := txPos + size.IntSize
+	blockPos := fileNamePos + dbfile.MaxStringLengthOnPage(len(blockID.FileName()))
+	offsetPos := blockPos + size.IntSize
+	valuePos := offsetPos + size.IntSize
+	recordLen := valuePos + dbfile.MaxStringLengthOnPage(len(value))
+	b := make([]byte, recordLen)
+	page := dbfile.NewPageFromBytes(b)
+	if err := page.SetInt(0, SETSTRING); err != nil {
+		return 0, fmt.Errorf("failed to set op: %w", err)
+	}
+	if err := page.SetInt(txPos, txNum); err != nil {
+		return 0, fmt.Errorf("failed to set txNum: %w", err)
+	}
+	if err := page.SetString(fileNamePos, blockID.FileName()); err != nil {
+		return 0, fmt.Errorf("failed to set blockID: %w", err)
+	}
+	if err := page.SetInt(blockPos, blockID.BlockNum()); err != nil {
+		return 0, fmt.Errorf("failed to set blockNum: %w", err)
+	}
+	if err := page.SetInt(offsetPos, offset); err != nil {
+		return 0, fmt.Errorf("failed to set offset: %w", err)
+	}
+	if err := page.SetString(valuePos, value); err != nil {
+		return 0, fmt.Errorf("failed to set value: %w", err)
+	}
+	lsn, err := lm.Append(b)
+	if err != nil {
+		return 0, fmt.Errorf("failed to append log record: %w", err)
+	}
+	return lsn, nil
 }
