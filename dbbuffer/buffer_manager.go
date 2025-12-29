@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/teru01/simpledb-go/dberr"
 	"github.com/teru01/simpledb-go/dbfile"
 	"github.com/teru01/simpledb-go/dblog"
 )
@@ -99,7 +100,7 @@ func (bm *BufferManager) Pin(blk dbfile.BlockID) (*Buffer, error) {
 		select {
 		case <-bm.availabilityNotification:
 		case <-ctx.Done():
-			return nil, fmt.Errorf("failed to pin. It took too long to get an unpinned buffer")
+			return nil, dberr.New(dberr.CodeBufferWaitAbort, "failed to pin. It took too long to get an unpinned buffer", nil)
 		}
 	}
 }
