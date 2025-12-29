@@ -34,7 +34,7 @@ func NewBufferManager(fm *dbfile.FileManager, lm *dblog.LogManager, numBuffers i
 	bm := &BufferManager{
 		bufferPool:               bufs,
 		numAvailable:             numBuffers,
-		availabilityNotification: make(chan struct{}, 1),
+		availabilityNotification: make(chan struct{}),
 		lru:                      lru,
 	}
 
@@ -69,11 +69,9 @@ func (bm *BufferManager) Unpin(buffer *Buffer) {
 	if !buffer.IsPinned() {
 		bm.numAvailable++
 		bm.lru.PushFront(buffer.ID)
-		select {
-		case bm.availabilityNotification <- struct{}{}:
-		default:
-			// pinを待機してるものがいない
-			// TODO?: closeしてnotify allした方がいいかも
+		if bm.availabilityNotification != nil {
+			close(bm.availabilityNotification)
+			bm.availabilityNotification = nil
 		}
 	}
 }
@@ -83,11 +81,15 @@ func (bm *BufferManager) Pin(blk dbfile.BlockID) (*Buffer, error) {
 	// tryToPinが失敗したら1つunpinされるのを待つ
 	ctx, cancel := context.WithTimeout(context.Background(), MAX_WAIT_TIME)
 	defer cancel()
-
 	for {
+		var waitCh chan struct{}
 		buf, err := func() (*Buffer, error) {
 			bm.mu.Lock()
 			defer bm.mu.Unlock()
+			if bm.availabilityNotification == nil {
+				bm.availabilityNotification = make(chan struct{})
+			}
+			waitCh = bm.availabilityNotification
 			return bm.tryToPinLocked(blk)
 		}()
 
@@ -99,7 +101,7 @@ func (bm *BufferManager) Pin(blk dbfile.BlockID) (*Buffer, error) {
 		}
 
 		select {
-		case <-bm.availabilityNotification:
+		case <-waitCh:
 		case <-ctx.Done():
 			return nil, dberr.New(dberr.CodeBufferWaitAbort, "failed to pin. It took too long to get an unpinned buffer", nil)
 		}
