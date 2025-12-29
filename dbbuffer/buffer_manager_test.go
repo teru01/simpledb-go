@@ -4,6 +4,7 @@ import (
 	"os"
 	"sync"
 	"testing"
+	"testing/synctest"
 
 	"github.com/teru01/simpledb-go/dbbuffer"
 	"github.com/teru01/simpledb-go/dbfile"
@@ -300,34 +301,32 @@ func TestBufferManagerConcurrentPinUnpin(t *testing.T) {
 }
 
 func TestBufferManagerPinTimeout(t *testing.T) {
-	bm, fm, cleanup := setupTestBufferManager(t, 1)
-	defer cleanup()
+	synctest.Test(t, func(t *testing.T) {
+		bm, fm, cleanup := setupTestBufferManager(t, 1)
+		defer cleanup()
 
-	// Create blocks
-	for i := 0; i < 2; i++ {
-		if _, err := fm.Append("testfile"); err != nil {
-			t.Fatalf("failed to append block %d: %v", i, err)
+		// Create blocks
+		for i := 0; i < 2; i++ {
+			if _, err := fm.Append("testfile"); err != nil {
+				t.Fatalf("failed to append block %d: %v", i, err)
+			}
 		}
-	}
 
-	blk1 := dbfile.NewBlockID("testfile", 0)
-	blk2 := dbfile.NewBlockID("testfile", 1)
+		blk1 := dbfile.NewBlockID("testfile", 0)
+		blk2 := dbfile.NewBlockID("testfile", 1)
 
-	// Pin the only buffer
-	buf1, err := bm.Pin(blk1)
-	if err != nil {
-		t.Fatalf("failed to pin blk1: %v", err)
-	}
+		// Pin the only buffer
+		buf1, err := bm.Pin(blk1)
+		if err != nil {
+			t.Fatalf("failed to pin blk1: %v", err)
+		}
 
-	// Try to pin another block - should timeout since no buffers available
-	// This test might take MAX_WAIT_TIME (10 seconds) to complete
-	// You may want to adjust MAX_WAIT_TIME for testing or skip this test
-	t.Skip("Skipping timeout test as it takes too long")
+		// Try to pin another block - should timeout since no buffers available
+		_, err = bm.Pin(blk2)
+		if err == nil {
+			t.Error("expected error when pinning with no available buffers")
+		}
 
-	_, err = bm.Pin(blk2)
-	if err == nil {
-		t.Error("expected error when pinning with no available buffers")
-	}
-
-	bm.Unpin(buf1)
+		bm.Unpin(buf1)
+	})
 }
