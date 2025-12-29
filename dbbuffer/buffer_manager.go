@@ -73,6 +73,7 @@ func (bm *BufferManager) Unpin(buffer *Buffer) {
 		case bm.availabilityNotification <- struct{}{}:
 		default:
 			// pinを待機してるものがいない
+			// TODO?: closeしてnotify allした方がいいかも
 		}
 	}
 }
