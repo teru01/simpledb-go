@@ -2,7 +2,6 @@ package dbtx
 
 import (
 	"fmt"
-	"slices"
 
 	"github.com/teru01/simpledb-go/dbbuffer"
 	"github.com/teru01/simpledb-go/dblog"
@@ -11,11 +10,11 @@ import (
 type RecoveryManager struct {
 	logManager    *dblog.LogManager
 	bufferManager *dbbuffer.BufferManager
-	tx            Transaction
+	tx            *Transaction
 	txNum         int
 }
 
-func NewRecoveryManager(tx Transaction, txNum int, logManager *dblog.LogManager, bufferManager *dbbuffer.BufferManager) (*RecoveryManager, error) {
+func NewRecoveryManager(tx *Transaction, txNum int, logManager *dblog.LogManager, bufferManager *dbbuffer.BufferManager) (*RecoveryManager, error) {
 	rm := &RecoveryManager{tx: tx, txNum: txNum, logManager: logManager, bufferManager: bufferManager}
 	_, err := WriteStartToLog(logManager, txNum)
 	if err != nil {
@@ -24,7 +23,8 @@ func NewRecoveryManager(tx Transaction, txNum int, logManager *dblog.LogManager,
 	return rm, nil
 }
 
-// 変更とCOMMIT logがディスクに乗ることを保証
+// バッファの変更が先にディスクに乗る(このwrite自体はWALが守られている）
+// undo only recovery専用のcommit実装になっている: logにcommitがあるけど実際にはディスクに乗ってない、ケースは発生しない
 func (rm *RecoveryManager) Commit() error {
 	if err := rm.bufferManager.FlushAll(rm.txNum); err != nil {
 		return fmt.Errorf("failed to flush all buffers: %w", err)
@@ -94,7 +94,7 @@ func (rm *RecoveryManager) Recover() error {
 }
 
 func (rm *RecoveryManager) doRecover() error {
-	finishedTxNum := make([]int, 0)
+	finishedTxNum := make(map[int]struct{}, 0)
 	it, err := rm.logManager.Iterator()
 	if err != nil {
 		return fmt.Errorf("failed to get iterator: %w", err)
@@ -107,9 +107,9 @@ func (rm *RecoveryManager) doRecover() error {
 		if record.op() == CHECKPOINT {
 			return nil
 		} else if record.op() == COMMIT || record.op() == ROLLBACK {
-			finishedTxNum = append(finishedTxNum, record.txNumber())
-		} else if !slices.Contains(finishedTxNum, record.txNumber()) {
-			record.undo(record.txNumber())
+			finishedTxNum[record.txNumber()] = struct{}{}
+		} else if _, ok := finishedTxNum[record.txNumber()]; !ok {
+			record.undo(rm.txNum)
 		}
 	}
 	return nil
