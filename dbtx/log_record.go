@@ -234,7 +234,7 @@ func (l setIntLogRecord) txNumber() int {
 }
 
 func (l setIntLogRecord) undo(txNumber int) {
-	// no-op
+	
 }
 
 func (l setIntLogRecord) String() string {

@@ -73,6 +73,8 @@ func (b *Buffer) assignToBlock(blockID dbfile.BlockID) error {
 	return nil
 }
 
+// 変更をディスクに書き出す
+// WALの原則に従い、先にlogをflushする。flush()が呼ばれる前にlogにはappendされてないといけない
 func (b *Buffer) flush() error {
 	if b.state.txNum == -1 {
 		return nil
