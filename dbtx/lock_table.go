@@ -17,8 +17,8 @@ type LockTable struct {
 	locks            map[dbfile.BlockID]int
 }
 
-func NewLockTable() LockTable {
-	return LockTable{
+func NewLockTable() *LockTable {
+	return &LockTable{
 		mu:               sync.Mutex{},
 		lockWaitChannels: make(map[dbfile.BlockID]chan struct{}),
 		locks:            make(map[dbfile.BlockID]int),
