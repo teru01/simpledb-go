@@ -55,7 +55,7 @@ func NewFileManager(dbDirectory *os.File, blockSize int) (*FileManager, error) {
 	}, nil
 }
 
-func (fm *FileManager) Read(blockID BlockID, p Page) error {
+func (fm *FileManager) Read(blockID BlockID, p *Page) error {
 	fm.mu.Lock()
 	defer fm.mu.Unlock()
 	file, err := fm.getFile(blockID.FileName())
@@ -73,7 +73,7 @@ func (fm *FileManager) Read(blockID BlockID, p Page) error {
 	return nil
 }
 
-func (fm *FileManager) Write(blockID BlockID, p Page) error {
+func (fm *FileManager) Write(blockID BlockID, p *Page) error {
 	fm.mu.Lock()
 	defer fm.mu.Unlock()
 	file, err := fm.getFile(blockID.FileName())

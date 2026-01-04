@@ -2,6 +2,7 @@ package dbtx
 
 import (
 	"fmt"
+	"log/slog"
 
 	"github.com/teru01/simpledb-go/dbbuffer"
 	"github.com/teru01/simpledb-go/dbfile"
@@ -21,11 +22,11 @@ func NewBufferList(bm *dbbuffer.BufferManager) *BufferList {
 	}
 }
 
-func (b *BufferList) Buffer(blk dbfile.BlockID) *dbbuffer.Buffer {
+func (b *BufferList) Buffer(blk dbfile.BlockID) (*dbbuffer.Buffer, error) {
 	if buf, ok := b.buffers[blk]; ok {
-		return buf
+		return buf, nil
 	}
-	return nil
+	return nil, fmt.Errorf("no such block on buffer %s", blk)
 }
 
 func (b *BufferList) Pin(blk dbfile.BlockID) error {
@@ -39,9 +40,9 @@ func (b *BufferList) Pin(blk dbfile.BlockID) error {
 }
 
 func (b *BufferList) UnPin(blk dbfile.BlockID) error {
-	buf := b.Buffer(blk)
-	if buf == nil {
-		return fmt.Errorf("failed to unpin. no such buffer %s", blk)
+	buf, err := b.Buffer(blk)
+	if err != nil {
+		return fmt.Errorf("failed to unpin: %w", err)
 	}
 	b.bufferManager.Unpin(buf)
 	b.pinsCount[blk]--
@@ -54,10 +55,10 @@ func (b *BufferList) UnPin(blk dbfile.BlockID) error {
 
 func (b *BufferList) UnpinAll() {
 	for blk, count := range b.pinsCount {
-		buf := b.Buffer(blk)
-		if buf != nil {
-			for range count {
-				b.bufferManager.Unpin(buf)
+		for range count {
+			if err := b.UnPin(blk); err != nil {
+				slog.Error(err.Error())
+				continue // 存在しないやつは無視して全部unpinする
 			}
 		}
 	}

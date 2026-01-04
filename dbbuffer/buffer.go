@@ -15,7 +15,7 @@ type Buffer struct {
 }
 
 type bufferState struct {
-	contents dbfile.Page
+	contents *dbfile.Page
 	blk      dbfile.BlockID
 	pins     int
 	txNum    int // contentsをメモリ上で変更してdisk writeされてないtransaction number
@@ -37,7 +37,7 @@ func NewBuffer(id int, fm *dbfile.FileManager, lm *dblog.LogManager) Buffer {
 	}
 }
 
-func (b Buffer) Contents() dbfile.Page {
+func (b Buffer) Contents() *dbfile.Page {
 	return b.state.contents
 }
 

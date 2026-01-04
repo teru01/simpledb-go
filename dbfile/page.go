@@ -3,16 +3,16 @@ package dbfile
 import "fmt"
 
 type Page struct {
-	buffer ByteBuffer
+	buffer *ByteBuffer
 }
 
 // IO Bufferを使わないのでパフォーマンスどうか？
-func NewPage(blockSize int) Page {
-	return Page{buffer: NewByteBuffer(blockSize)}
+func NewPage(blockSize int) *Page {
+	return &Page{buffer: NewByteBuffer(blockSize)}
 }
 
-func NewPageFromBytes(bytes []byte) Page {
-	return Page{buffer: NewByteBufferFromBytes(bytes)}
+func NewPageFromBytes(bytes []byte) *Page {
+	return &Page{buffer: NewByteBufferFromBytes(bytes)}
 }
 
 func (p *Page) GetInt(offset int) int {
@@ -63,7 +63,7 @@ func MaxStringLengthOnPage(strLen int) int {
 	return intSize + strLen*4
 }
 
-func (p *Page) pageBuffer() ByteBuffer {
+func (p *Page) pageBuffer() *ByteBuffer {
 	p.buffer.SetPosition(0)
 	return p.buffer
 }

@@ -81,7 +81,7 @@ type startLogRecord struct {
 	txNum int
 }
 
-func NewStartLogRecord(page dbfile.Page) LogRecord {
+func NewStartLogRecord(page *dbfile.Page) LogRecord {
 	txPos := size.IntSize
 	txNum := page.GetInt(txPos)
 	return &startLogRecord{txNum: txNum}
@@ -124,7 +124,7 @@ type commitLogRecord struct {
 	txNum int
 }
 
-func NewCommitLogRecord(page dbfile.Page) LogRecord {
+func NewCommitLogRecord(page *dbfile.Page) LogRecord {
 	txPos := size.IntSize
 	txNum := page.GetInt(txPos)
 	return &commitLogRecord{txNum: txNum}
@@ -167,7 +167,7 @@ type rollbackLogRecord struct {
 	txNum int
 }
 
-func NewRollbackLogRecord(page dbfile.Page) LogRecord {
+func NewRollbackLogRecord(page *dbfile.Page) LogRecord {
 	txPos := size.IntSize
 	txNum := page.GetInt(txPos)
 	return &rollbackLogRecord{txNum: txNum}
@@ -213,7 +213,7 @@ type setIntLogRecord struct {
 	value   int
 }
 
-func NewSetIntLogRecord(page dbfile.Page) LogRecord {
+func NewSetIntLogRecord(page *dbfile.Page) LogRecord {
 	txPos := size.IntSize
 	txNum := page.GetInt(txPos)
 	blockIDPos := txPos + size.IntSize
@@ -234,7 +234,7 @@ func (l setIntLogRecord) txNumber() int {
 }
 
 func (l setIntLogRecord) undo(txNumber int) {
-	
+
 }
 
 func (l setIntLogRecord) String() string {
@@ -282,7 +282,7 @@ type setStringLogRecord struct {
 	value   string
 }
 
-func NewSetStringLogRecord(page dbfile.Page) LogRecord {
+func NewSetStringLogRecord(page *dbfile.Page) LogRecord {
 	txPos := size.IntSize
 	txNum := page.GetInt(txPos)
 	blockIDPos := txPos + size.IntSize

@@ -12,12 +12,12 @@ type ByteBuffer struct {
 
 const intSize = strconv.IntSize / 8
 
-func NewByteBuffer(blockSize int) ByteBuffer {
-	return ByteBuffer{buffer: make([]byte, blockSize)}
+func NewByteBuffer(blockSize int) *ByteBuffer {
+	return &ByteBuffer{buffer: make([]byte, blockSize)}
 }
 
-func NewByteBufferFromBytes(bytes []byte) ByteBuffer {
-	return ByteBuffer{buffer: bytes}
+func NewByteBufferFromBytes(bytes []byte) *ByteBuffer {
+	return &ByteBuffer{buffer: bytes}
 }
 
 func (b *ByteBuffer) Position() int {

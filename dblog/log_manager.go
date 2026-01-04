@@ -17,7 +17,7 @@ type LogManager struct {
 }
 
 type logManagerState struct {
-	logPage      dbfile.Page
+	logPage      *dbfile.Page
 	currentBlock dbfile.BlockID
 	latestLSN    int
 	lastSavedLSN int
@@ -112,7 +112,7 @@ func (lm *LogManager) Append(logRecord []byte) (int, error) {
 }
 
 // log fileに1ブロック追加しページを初期化する
-func (lm *LogManager) appendNewBlock(p dbfile.Page) (dbfile.BlockID, error) {
+func (lm *LogManager) appendNewBlock(p *dbfile.Page) (dbfile.BlockID, error) {
 	block, err := lm.fileManager.Append(lm.logFileName)
 	if err != nil {
 		return dbfile.BlockID{}, fmt.Errorf("faile to append block to %s: %w", lm.logFileName, err)
