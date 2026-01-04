@@ -25,6 +25,8 @@ func NewLockTable() LockTable {
 	}
 }
 
+// shared lockを取る
+// xlockがすでにblockに対して取られている場合は待機
 func (l *LockTable) SLock(ctx context.Context, blk dbfile.BlockID) error {
 	ctx, cancel := context.WithTimeout(ctx, MAX_WAIT_TIME_SECOND*time.Second)
 	defer cancel()
@@ -42,7 +44,7 @@ func (l *LockTable) SLock(ctx context.Context, blk dbfile.BlockID) error {
 				l.lockWaitChannels[blk] = make(chan struct{}, 1)
 			}
 			waitCh = l.lockWaitChannels[blk] // lockの外で使うため
-			if !l.hasXLockLocked(blk) {
+			if !l.HasXLockLocked(blk) {
 				l.locks[blk]++
 				gotLock = true
 			}
@@ -59,7 +61,8 @@ func (l *LockTable) SLock(ctx context.Context, blk dbfile.BlockID) error {
 }
 
 // XLockをとる
-// XLockを取る前にSLockが取られる必要がある
+// x, slockがblkに対して取られている場合は待機
+// XLockを取る前にSLockが取られている必要がある
 func (l *LockTable) XLock(ctx context.Context, blk dbfile.BlockID) error {
 	ctx, cancel := context.WithTimeout(ctx, MAX_WAIT_TIME_SECOND*time.Second)
 	defer cancel()
@@ -76,7 +79,7 @@ func (l *LockTable) XLock(ctx context.Context, blk dbfile.BlockID) error {
 				l.lockWaitChannels[blk] = make(chan struct{}, 1)
 			}
 			waitCh = l.lockWaitChannels[blk] // lockの外で使うため
-			if !l.hasOtherSLocksLocked(blk) {
+			if !l.HasOtherSLocksLocked(blk) {
 				l.locks[blk] = -1
 				gotLock = true
 			}
@@ -113,14 +116,14 @@ func (l *LockTable) UnLock(blk dbfile.BlockID) {
 	}
 }
 
-func (l *LockTable) hasXLockLocked(blk dbfile.BlockID) bool {
+func (l *LockTable) HasXLockLocked(blk dbfile.BlockID) bool {
 	return l.locks[blk] < 0
 }
 
-func (l *LockTable) hasOtherSLocksLocked(blk dbfile.BlockID) bool {
+func (l *LockTable) HasOtherSLocksLocked(blk dbfile.BlockID) bool {
 	return l.locks[blk] > 1
 }
 
-func (l *LockTable) getLockValLocked(blk dbfile.BlockID) int {
+func (l *LockTable) GetLockValLocked(blk dbfile.BlockID) int {
 	return l.locks[blk]
 }
