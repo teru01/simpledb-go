@@ -1,6 +1,7 @@
 package dbtx
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 
@@ -29,8 +30,8 @@ func (b *BufferList) Buffer(blk dbfile.BlockID) (*dbbuffer.Buffer, error) {
 	return nil, fmt.Errorf("no such block on buffer %s", blk)
 }
 
-func (b *BufferList) Pin(blk dbfile.BlockID) error {
-	buf, err := b.bufferManager.Pin(blk)
+func (b *BufferList) Pin(ctx context.Context, blk dbfile.BlockID) error {
+	buf, err := b.bufferManager.Pin(ctx, blk)
 	if err != nil {
 		return fmt.Errorf("failed to pin: %w", err)
 	}

@@ -1,6 +1,7 @@
 package dbtx
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/teru01/simpledb-go/dbfile"
@@ -20,7 +21,7 @@ const (
 type LogRecord interface {
 	op() int
 	txNumber() int
-	undo(txNumber int)
+	undo(ctx context.Context, tx *Transaction) error
 }
 
 func NewLogRecord(contents []byte) LogRecord {
@@ -56,8 +57,8 @@ func (l checkpointLogRecord) txNumber() int {
 	return -1
 }
 
-func (l checkpointLogRecord) undo(txNumber int) {
-	// no-op
+func (l checkpointLogRecord) undo(ctx context.Context, tx *Transaction) error {
+	return nil
 }
 
 func (l checkpointLogRecord) String() string {
@@ -99,8 +100,8 @@ func (l startLogRecord) String() string {
 	return fmt.Sprintf("{\"kind\": \"start\", \"txNum\": %d}", l.txNumber())
 }
 
-func (l startLogRecord) undo(txNumber int) {
-	// no-op
+func (l startLogRecord) undo(ctx context.Context, tx *Transaction) error {
+	return nil
 }
 
 func WriteStartToLog(lm *dblog.LogManager, txNum int) (int, error) {
@@ -138,8 +139,8 @@ func (l commitLogRecord) txNumber() int {
 	return l.txNum
 }
 
-func (l commitLogRecord) undo(txNumber int) {
-	// no-op
+func (l commitLogRecord) undo(ctx context.Context, tx *Transaction) error {
+	return nil
 }
 
 func (l commitLogRecord) String() string {
@@ -185,8 +186,8 @@ func (l rollbackLogRecord) String() string {
 	return fmt.Sprintf("{\"kind\": \"rollback\", \"txNum\": %d}", l.txNumber())
 }
 
-func (l rollbackLogRecord) undo(txNumber int) {
-	// no-op
+func (l rollbackLogRecord) undo(ctx context.Context, tx *Transaction) error {
+	return nil
 }
 
 func WriteRollbackToLog(lm *dblog.LogManager, txNum int) (int, error) {
@@ -233,8 +234,17 @@ func (l setIntLogRecord) txNumber() int {
 	return l.txNum
 }
 
-func (l setIntLogRecord) undo(txNumber int) {
-
+func (l setIntLogRecord) undo(ctx context.Context, tx *Transaction) error {
+	if err := tx.Pin(ctx, l.blockID); err != nil {
+		return fmt.Errorf("failed to pin block: %w", err)
+	}
+	if err := tx.SetInt(ctx, l.blockID, l.offset, l.value, false); err != nil {
+		return fmt.Errorf("failed to set int: %w", err)
+	}
+	if err := tx.UnPin(l.blockID); err != nil {
+		return fmt.Errorf("failed to unpin block: %w", err)
+	}
+	return nil
 }
 
 func (l setIntLogRecord) String() string {
@@ -302,8 +312,17 @@ func (l setStringLogRecord) txNumber() int {
 	return l.txNum
 }
 
-func (l setStringLogRecord) undo(txNumber int) {
-	// no-op
+func (l setStringLogRecord) undo(ctx context.Context, tx *Transaction) error {
+	if err := tx.Pin(ctx, l.blockID); err != nil {
+		return fmt.Errorf("failed to pin block: %w", err)
+	}
+	if err := tx.SetString(ctx, l.blockID, l.offset, l.value, false); err != nil {
+		return fmt.Errorf("failed to set string: %w", err)
+	}
+	if err := tx.UnPin(l.blockID); err != nil {
+		return fmt.Errorf("failed to unpin block: %w", err)
+	}
+	return nil
 }
 
 func (l setStringLogRecord) String() string {

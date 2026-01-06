@@ -1,6 +1,7 @@
 package dbbuffer_test
 
 import (
+	"context"
 	"os"
 	"sync"
 	"testing"
@@ -62,9 +63,10 @@ func TestBufferManagerPinUnpin(t *testing.T) {
 	}
 
 	blk := dbfile.NewBlockID("testfile", 0)
+	ctx := context.Background()
 
 	// Pin a buffer
-	buf, err := bm.Pin(blk)
+	buf, err := bm.Pin(ctx, blk)
 	if err != nil {
 		t.Fatalf("failed to pin buffer: %v", err)
 	}
@@ -95,14 +97,15 @@ func TestBufferManagerMultiplePins(t *testing.T) {
 	}
 
 	blk := dbfile.NewBlockID("testfile", 0)
+	ctx := context.Background()
 
 	// Pin same block twice
-	buf1, err := bm.Pin(blk)
+	buf1, err := bm.Pin(ctx, blk)
 	if err != nil {
 		t.Fatalf("failed to pin buffer first time: %v", err)
 	}
 
-	buf2, err := bm.Pin(blk)
+	buf2, err := bm.Pin(ctx, blk)
 	if err != nil {
 		t.Fatalf("failed to pin buffer second time: %v", err)
 	}
@@ -144,19 +147,20 @@ func TestBufferManagerPinDifferentBlocks(t *testing.T) {
 	blk1 := dbfile.NewBlockID("testfile", 0)
 	blk2 := dbfile.NewBlockID("testfile", 1)
 	blk3 := dbfile.NewBlockID("testfile", 2)
+	ctx := context.Background()
 
 	// Pin three different blocks
-	buf1, err := bm.Pin(blk1)
+	buf1, err := bm.Pin(ctx, blk1)
 	if err != nil {
 		t.Fatalf("failed to pin blk1: %v", err)
 	}
 
-	buf2, err := bm.Pin(blk2)
+	buf2, err := bm.Pin(ctx, blk2)
 	if err != nil {
 		t.Fatalf("failed to pin blk2: %v", err)
 	}
 
-	buf3, err := bm.Pin(blk3)
+	buf3, err := bm.Pin(ctx, blk3)
 	if err != nil {
 		t.Fatalf("failed to pin blk3: %v", err)
 	}
@@ -186,22 +190,23 @@ func TestBufferManagerBufferReplacement(t *testing.T) {
 	blk1 := dbfile.NewBlockID("testfile", 0)
 	blk2 := dbfile.NewBlockID("testfile", 1)
 	blk3 := dbfile.NewBlockID("testfile", 2)
+	ctx := context.Background()
 
 	// Pin and unpin blk1
-	buf1, err := bm.Pin(blk1)
+	buf1, err := bm.Pin(ctx, blk1)
 	if err != nil {
 		t.Fatalf("failed to pin blk1: %v", err)
 	}
 	bm.Unpin(buf1)
 
 	// Pin and keep blk2 pinned
-	buf2, err := bm.Pin(blk2)
+	buf2, err := bm.Pin(ctx, blk2)
 	if err != nil {
 		t.Fatalf("failed to pin blk2: %v", err)
 	}
 
 	// Pin blk3 should reuse buf1's buffer (unpinned)
-	buf3, err := bm.Pin(blk3)
+	buf3, err := bm.Pin(ctx, blk3)
 	if err != nil {
 		t.Fatalf("failed to pin blk3: %v", err)
 	}
@@ -227,15 +232,16 @@ func TestBufferManagerFlushAll(t *testing.T) {
 
 	blk1 := dbfile.NewBlockID("testfile", 0)
 	blk2 := dbfile.NewBlockID("testfile", 1)
+	ctx := context.Background()
 
 	// Pin buffers and modify them
-	buf1, err := bm.Pin(blk1)
+	buf1, err := bm.Pin(ctx, blk1)
 	if err != nil {
 		t.Fatalf("failed to pin blk1: %v", err)
 	}
 	buf1.SetModified(1, 100)
 
-	buf2, err := bm.Pin(blk2)
+	buf2, err := bm.Pin(ctx, blk2)
 	if err != nil {
 		t.Fatalf("failed to pin blk2: %v", err)
 	}
@@ -275,13 +281,14 @@ func TestBufferManagerConcurrentPinUnpin(t *testing.T) {
 	numGoroutines := 10
 	numOperations := 20
 
+	ctx := context.Background()
 	for i := 0; i < numGoroutines; i++ {
 		wg.Add(1)
 		go func(id int) {
 			defer wg.Done()
 			for j := 0; j < numOperations; j++ {
 				blk := dbfile.NewBlockID("testfile", id%3)
-				buf, err := bm.Pin(blk)
+				buf, err := bm.Pin(ctx, blk)
 				if err != nil {
 					t.Errorf("goroutine %d: failed to pin: %v", id, err)
 					return
@@ -314,15 +321,16 @@ func TestBufferManagerPinTimeout(t *testing.T) {
 
 		blk1 := dbfile.NewBlockID("testfile", 0)
 		blk2 := dbfile.NewBlockID("testfile", 1)
+		ctx := context.Background()
 
 		// Pin the only buffer
-		buf1, err := bm.Pin(blk1)
+		buf1, err := bm.Pin(ctx, blk1)
 		if err != nil {
 			t.Fatalf("failed to pin blk1: %v", err)
 		}
 
 		// Try to pin another block - should timeout since no buffers available
-		_, err = bm.Pin(blk2)
+		_, err = bm.Pin(ctx, blk2)
 		if err == nil {
 			t.Error("expected error when pinning with no available buffers")
 		}

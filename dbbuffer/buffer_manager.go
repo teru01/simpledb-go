@@ -76,10 +76,10 @@ func (bm *BufferManager) Unpin(buffer *Buffer) {
 	}
 }
 
-func (bm *BufferManager) Pin(blk dbfile.BlockID) (*Buffer, error) {
+func (bm *BufferManager) Pin(ctx context.Context, blk dbfile.BlockID) (*Buffer, error) {
 	// 最大max_timeまつ
 	// tryToPinが失敗したら1つunpinされるのを待つ
-	ctx, cancel := context.WithTimeout(context.Background(), MAX_WAIT_TIME)
+	ctx, cancel := context.WithTimeout(ctx, MAX_WAIT_TIME)
 	defer cancel()
 	for {
 		var waitCh chan struct{}

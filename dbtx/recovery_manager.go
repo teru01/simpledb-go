@@ -1,6 +1,7 @@
 package dbtx
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/teru01/simpledb-go/dbbuffer"
@@ -39,8 +40,8 @@ func (rm *RecoveryManager) Commit() error {
 	return nil
 }
 
-func (rm *RecoveryManager) Rollback() error {
-	if err := rm.doRollback(); err != nil {
+func (rm *RecoveryManager) Rollback(ctx context.Context) error {
+	if err := rm.doRollback(ctx); err != nil {
 		return fmt.Errorf("failed to rollback: %w", err)
 	}
 	if err := rm.bufferManager.FlushAll(rm.txNum); err != nil {
@@ -56,7 +57,7 @@ func (rm *RecoveryManager) Rollback() error {
 	return nil
 }
 
-func (rm *RecoveryManager) doRollback() error {
+func (rm *RecoveryManager) doRollback(ctx context.Context) error {
 	it, err := rm.logManager.Iterator()
 	if err != nil {
 		return fmt.Errorf("failed to get iterator: %w", err)
@@ -70,14 +71,16 @@ func (rm *RecoveryManager) doRollback() error {
 			if record.op() == START {
 				return nil
 			}
-			record.undo(rm.txNum)
+			if err := record.undo(ctx, rm.tx); err != nil {
+				return fmt.Errorf("failed to undo: %w", err)
+			}
 		}
 	}
 	return nil
 }
 
-func (rm *RecoveryManager) Recover() error {
-	if err := rm.doRecover(); err != nil {
+func (rm *RecoveryManager) Recover(ctx context.Context) error {
+	if err := rm.doRecover(ctx); err != nil {
 		return fmt.Errorf("failed to recover: %w", err)
 	}
 	if err := rm.bufferManager.FlushAll(rm.txNum); err != nil {
@@ -93,7 +96,7 @@ func (rm *RecoveryManager) Recover() error {
 	return nil
 }
 
-func (rm *RecoveryManager) doRecover() error {
+func (rm *RecoveryManager) doRecover(ctx context.Context) error {
 	finishedTxNum := make(map[int]struct{}, 0)
 	it, err := rm.logManager.Iterator()
 	if err != nil {
@@ -109,8 +112,22 @@ func (rm *RecoveryManager) doRecover() error {
 		} else if record.op() == COMMIT || record.op() == ROLLBACK {
 			finishedTxNum[record.txNumber()] = struct{}{}
 		} else if _, ok := finishedTxNum[record.txNumber()]; !ok {
-			record.undo(rm.txNum)
+			if err := record.undo(ctx, rm.tx); err != nil {
+				return fmt.Errorf("failed to undo: %w", err)
+			}
 		}
 	}
 	return nil
+}
+
+func (rm *RecoveryManager) SetInt(buf *dbbuffer.Buffer, offset, val int) (int, error) {
+	oldVal := buf.Contents().GetInt(offset)
+	blk := buf.BlockID()
+	return WriteIntToLog(rm.logManager, rm.txNum, blk, offset, oldVal)
+}
+
+func (rm *RecoveryManager) SetString(buf *dbbuffer.Buffer, offset int, val string) (int, error) {
+	oldVal := buf.Contents().GetString(offset)
+	blk := buf.BlockID()
+	return WriteStringToLog(rm.logManager, rm.txNum, blk, offset, oldVal)
 }
