@@ -34,7 +34,7 @@ func NewTransaction(fm *dbfile.FileManager, lm *dblog.LogManager, bm *dbbuffer.B
 		fileManager:        fm,
 		myBufferList:       NewBufferList(bm),
 		state: transactionState{
-			txNum: nextTxNum,
+			txNum: NextTxNum(),
 		},
 	}
 	var err error
@@ -116,6 +116,17 @@ func (t *Transaction) SetInt(ctx context.Context, blk dbfile.BlockID, offset, va
 	return nil
 }
 
+func (t *Transaction) GetString(ctx context.Context, blk dbfile.BlockID, offset int) (string, error) {
+	if err := t.concurrencyManager.SLock(ctx, blk); err != nil {
+		return "", fmt.Errorf("failed to SLock: %w", err)
+	}
+	buf, err := t.myBufferList.Buffer(blk)
+	if err != nil {
+		return "", fmt.Errorf("failed to get buffer: %w", err)
+	}
+	return buf.Contents().GetString(offset), nil
+}
+
 func (t *Transaction) SetString(ctx context.Context, blk dbfile.BlockID, offset int, val string, okToLog bool) error {
 	if err := t.concurrencyManager.XLock(ctx, blk); err != nil {
 		return fmt.Errorf("failed to XLock: %w", err)
@@ -175,4 +186,8 @@ func NextTxNum() int {
 	nextTxNum++
 	slog.Debug("new transaction", slog.Any("nextTx", nextTxNum))
 	return nextTxNum
+}
+
+func ResetTxNum() {
+	nextTxNum = 0
 }
