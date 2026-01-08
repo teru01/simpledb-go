@@ -105,7 +105,7 @@ func (l startLogRecord) undo(ctx context.Context, tx *Transaction) error {
 }
 
 func WriteStartToLog(lm *dblog.LogManager, txNum int) (int, error) {
-	b := make([]byte, size.IntSize)
+	b := make([]byte, size.IntSize*2)
 	txPos := size.IntSize
 	page := dbfile.NewPageFromBytes(b)
 	if err := page.SetInt(0, START); err != nil {
@@ -148,7 +148,7 @@ func (l commitLogRecord) String() string {
 }
 
 func WriteCommitToLog(lm *dblog.LogManager, txNum int) (int, error) {
-	b := make([]byte, size.IntSize)
+	b := make([]byte, size.IntSize*2)
 	txPos := size.IntSize
 	page := dbfile.NewPageFromBytes(b)
 	if err := page.SetInt(0, COMMIT); err != nil {
@@ -191,7 +191,7 @@ func (l rollbackLogRecord) undo(ctx context.Context, tx *Transaction) error {
 }
 
 func WriteRollbackToLog(lm *dblog.LogManager, txNum int) (int, error) {
-	b := make([]byte, size.IntSize)
+	b := make([]byte, size.IntSize*2)
 	txPos := size.IntSize
 	page := dbfile.NewPageFromBytes(b)
 	if err := page.SetInt(0, ROLLBACK); err != nil {
