@@ -126,6 +126,7 @@ func (bm *BufferManager) tryToPinLocked(blk dbfile.BlockID) (*Buffer, error) {
 	return buf, nil
 }
 
+// ターゲットのblkにpin済みのbufferを探す。
 func (bm *BufferManager) findExistingBuffer(blk dbfile.BlockID) *Buffer {
 	for i := range bm.bufferPool {
 		if bm.bufferPool[i].BlockID().Equals(blk) {

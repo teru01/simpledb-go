@@ -45,6 +45,10 @@ func NewTransaction(fm *dbfile.FileManager, lm *dblog.LogManager, bm *dbbuffer.B
 	return tx, nil
 }
 
+func (t *Transaction) TxNum() int {
+	return t.state.txNum
+}
+
 func (t *Transaction) Commit() error {
 	defer t.concurrencyManager.Release()
 	if err := t.recoveryManager.Commit(); err != nil {
