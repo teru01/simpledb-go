@@ -58,7 +58,7 @@ func (t *Transaction) Commit() error {
 func (t *Transaction) Rollback(ctx context.Context) error {
 	defer t.concurrencyManager.Release()
 	if err := t.recoveryManager.Rollback(ctx); err != nil {
-		return fmt.Errorf("failed to commit: %w", err)
+		return fmt.Errorf("failed to rollback: %w", err)
 	}
 	t.myBufferList.UnpinAll()
 	slog.Debug("transaction committed", slog.Int("txnum", t.state.txNum))
