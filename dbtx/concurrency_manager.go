@@ -10,7 +10,7 @@ import (
 // 全てのtransactionで共有
 var lockTable = NewLockTable()
 
-// 個々のtransactionが保持する.
+// 個々のtransactionが別個のインスタンスを保持する.
 type ConcurrencyManager struct {
 	locks map[dbfile.BlockID]string
 }

@@ -8,6 +8,7 @@ import (
 	"github.com/teru01/simpledb-go/dblog"
 )
 
+// 個々のtxが独立したインスタンスを持つ
 type RecoveryManager struct {
 	logManager    *dblog.LogManager
 	bufferManager *dbbuffer.BufferManager

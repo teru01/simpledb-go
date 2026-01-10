@@ -43,7 +43,7 @@ func NewLogManager(fm *dbfile.FileManager, logFileName string) (*LogManager, err
 	p := dbfile.NewPageFromBytes(b)
 
 	if logSize == 0 {
-		currentBlock, err = lm.appendNewBlock(p)
+		currentBlock, err = lm.appendNewBlockLocked(p)
 	} else {
 		currentBlock = dbfile.NewBlockID(lm.logFileName, logSize-1)
 		err = lm.fileManager.Read(currentBlock, p)
@@ -100,7 +100,7 @@ func (lm *LogManager) Append(logRecord []byte) (int, error) {
 		if err := lm.flushlocked(); err != nil {
 			return 0, fmt.Errorf("failed to Append: %w", err)
 		}
-		blk, err := lm.appendNewBlock(lm.state.logPage)
+		blk, err := lm.appendNewBlockLocked(lm.state.logPage)
 		if err != nil {
 			return 0, fmt.Errorf("failed to Append: %w", err)
 		}
@@ -119,8 +119,8 @@ func (lm *LogManager) Append(logRecord []byte) (int, error) {
 	return lm.state.latestLSN, nil
 }
 
-// log fileに1ブロック追加しページを初期化する
-func (lm *LogManager) appendNewBlock(p *dbfile.Page) (dbfile.BlockID, error) {
+// log fileに1ブロック追加しページを初期化する. lock前提
+func (lm *LogManager) appendNewBlockLocked(p *dbfile.Page) (dbfile.BlockID, error) {
 	block, err := lm.fileManager.Append(lm.logFileName)
 	if err != nil {
 		return dbfile.BlockID{}, fmt.Errorf("faile to append block to %s: %w", lm.logFileName, err)
@@ -138,9 +138,14 @@ func (lm *LogManager) Iterator() (iter.Seq2[[]byte, error], error) {
 	if err := lm.Flush(); err != nil {
 		return nil, fmt.Errorf("failed to create iter")
 	}
+
+	// appendしかされず過去のブロックは変更されないのでcurrent blockだけread lockする
+	lm.mu.RLock()
+	currentBlk := lm.state.currentBlock
+	lm.mu.RUnlock()
 	return func(yield func([]byte, error) bool) {
 		var iterError error
-		for i := lm.state.currentBlock.BlockNum(); i >= 0; i-- {
+		for i := currentBlk.BlockNum(); i >= 0; i-- {
 			currentBlock := dbfile.NewBlockID(lm.logFileName, i)
 			p := dbfile.NewPage(lm.fileManager.BlockSize())
 			if err := lm.fileManager.Read(currentBlock, p); err != nil {
