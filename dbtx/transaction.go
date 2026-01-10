@@ -99,6 +99,7 @@ func (t *Transaction) GetInt(ctx context.Context, blk dbfile.BlockID, offset int
 }
 
 // valを指定のblock/offsetに書き込む
+// あくまでbuffer上でメモリに乗せるだけ。disk書き込みはまだ
 func (t *Transaction) SetInt(ctx context.Context, blk dbfile.BlockID, offset, val int, okToLog bool) error {
 	if err := t.concurrencyManager.XLock(ctx, blk); err != nil {
 		return fmt.Errorf("failed to XLock: %w", err)
@@ -109,7 +110,6 @@ func (t *Transaction) SetInt(ctx context.Context, blk dbfile.BlockID, offset, va
 	}
 	lsn := -1
 	if okToLog {
-		// write ahead log
 		lsn, err = t.recoveryManager.SetInt(buf, offset, val)
 	}
 	page := buf.Contents()
@@ -187,6 +187,7 @@ func (t *Transaction) AvailableBuffs() int {
 }
 
 func NextTxNum() int {
+
 	nextTxNum++
 	slog.Debug("new transaction", slog.Any("nextTx", nextTxNum))
 	return nextTxNum

@@ -19,7 +19,6 @@ type BufferManager struct {
 	availabilityNotification chan struct{}
 	bufferPool               []Buffer
 	// unpinされた時間を見たdequeue unpinされると左からenq, replaceは右からdequeされていく
-	// 常にclear unpinされたもの詰まっていて、右側が最も昔にclear unpinされたもの、左側が新しいもの 初期状態では全部clear unpinされたとみなせる
 	lru          *list.List
 	numAvailable int
 }
@@ -108,9 +107,12 @@ func (bm *BufferManager) Pin(ctx context.Context, blk dbfile.BlockID) (*Buffer, 
 	}
 }
 
+// goroutineセーフではないので事前にlockが必要
 func (bm *BufferManager) tryToPinLocked(blk dbfile.BlockID) (*Buffer, error) {
+	// 不要なreplaceを防ぐためpin, unpin関係なくblkにひもづくbufferを探す
 	buf := bm.findExistingBuffer(blk)
 	if buf == nil {
+		// unpinされたbufferから最適なものを探す
 		buf = bm.chooseUnpinnedBuffer()
 		if buf == nil {
 			return nil, nil
@@ -126,10 +128,12 @@ func (bm *BufferManager) tryToPinLocked(blk dbfile.BlockID) (*Buffer, error) {
 	return buf, nil
 }
 
-// ターゲットのblkにpin済みのbufferを探す。
+// ターゲットのblkに現在pin済み、あるいは過去にpinされてunpinされたbufferを探す。
+// TODO: 計算量の改善
 func (bm *BufferManager) findExistingBuffer(blk dbfile.BlockID) *Buffer {
 	for i := range bm.bufferPool {
 		if bm.bufferPool[i].BlockID().Equals(blk) {
+			// lruに見つかれば除去（unpin済みのbufferとblkが一致した場合）
 			for e := bm.lru.Front(); e != nil; {
 				id, _ := e.Value.(int)
 				if id == bm.bufferPool[i].ID {

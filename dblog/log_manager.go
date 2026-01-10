@@ -71,8 +71,14 @@ func (lm *LogManager) FlushWithLSN(lsn int) error {
 	return lm.Flush()
 }
 
-// 最新のlog sequenceまでFlushする
 func (lm *LogManager) Flush() error {
+	lm.mu.Lock()
+	defer lm.mu.Unlock()
+	return lm.flushlocked()
+}
+
+// 最新のlog sequenceまでFlushする
+func (lm *LogManager) flushlocked() error {
 	if err := lm.fileManager.Write(lm.state.currentBlock, lm.state.logPage); err != nil {
 		return fmt.Errorf("failed to flush to block %v: %w", lm.state.currentBlock, err)
 	}
@@ -89,7 +95,7 @@ func (lm *LogManager) Append(logRecord []byte) (int, error) {
 	bytesNeeded := recordSize + size.IntSize
 	if boundary-bytesNeeded < size.IntSize {
 		// はみ出る
-		if err := lm.Flush(); err != nil {
+		if err := lm.flushlocked(); err != nil {
 			return 0, fmt.Errorf("failed to Append: %w", err)
 		}
 		blk, err := lm.appendNewBlock(lm.state.logPage)
