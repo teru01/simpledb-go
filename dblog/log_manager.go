@@ -10,7 +10,7 @@ import (
 )
 
 type LogManager struct {
-	mu          sync.Mutex
+	mu          sync.RWMutex
 	fileManager *dbfile.FileManager
 	logFileName string
 	state       logManagerState
@@ -64,11 +64,13 @@ func NewLogManager(fm *dbfile.FileManager, logFileName string) (*LogManager, err
 
 // 指定のlog sequenceまでのflushを保証する
 func (lm *LogManager) FlushWithLSN(lsn int) error {
+	lm.mu.Lock()
+	defer lm.mu.Unlock()
 	if lsn <= lm.state.lastSavedLSN {
 		// already saved
 		return nil
 	}
-	return lm.Flush()
+	return lm.flushlocked()
 }
 
 func (lm *LogManager) Flush() error {
