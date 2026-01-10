@@ -46,22 +46,22 @@ func NewLogRecord(contents []byte) LogRecord {
 type checkpointLogRecord struct{}
 
 func NewCheckpointLogRecord() LogRecord {
-	return checkpointLogRecord{}
+	return &checkpointLogRecord{}
 }
 
-func (l checkpointLogRecord) op() int {
+func (l *checkpointLogRecord) op() int {
 	return CHECKPOINT
 }
 
-func (l checkpointLogRecord) txNumber() uint64 {
+func (l *checkpointLogRecord) txNumber() uint64 {
 	return 0
 }
 
-func (l checkpointLogRecord) undo(ctx context.Context, tx *Transaction) error {
+func (l *checkpointLogRecord) undo(ctx context.Context, tx *Transaction) error {
 	return nil
 }
 
-func (l checkpointLogRecord) String() string {
+func (l *checkpointLogRecord) String() string {
 	return fmt.Sprintf("{\"kind\": \"checkpoint\", \"txNum\": %d}", l.txNumber())
 }
 
@@ -88,19 +88,19 @@ func NewStartLogRecord(page *dbfile.Page) LogRecord {
 	return &startLogRecord{txNum: txNum}
 }
 
-func (l startLogRecord) op() int {
+func (l *startLogRecord) op() int {
 	return START
 }
 
-func (l startLogRecord) txNumber() uint64 {
+func (l *startLogRecord) txNumber() uint64 {
 	return l.txNum
 }
 
-func (l startLogRecord) String() string {
+func (l *startLogRecord) String() string {
 	return fmt.Sprintf("{\"kind\": \"start\", \"txNum\": %d}", l.txNumber())
 }
 
-func (l startLogRecord) undo(ctx context.Context, tx *Transaction) error {
+func (l *startLogRecord) undo(ctx context.Context, tx *Transaction) error {
 	return nil
 }
 
@@ -131,19 +131,19 @@ func NewCommitLogRecord(page *dbfile.Page) LogRecord {
 	return &commitLogRecord{txNum: txNum}
 }
 
-func (l commitLogRecord) op() int {
+func (l *commitLogRecord) op() int {
 	return COMMIT
 }
 
-func (l commitLogRecord) txNumber() uint64 {
+func (l *commitLogRecord) txNumber() uint64 {
 	return l.txNum
 }
 
-func (l commitLogRecord) undo(ctx context.Context, tx *Transaction) error {
+func (l *commitLogRecord) undo(ctx context.Context, tx *Transaction) error {
 	return nil
 }
 
-func (l commitLogRecord) String() string {
+func (l *commitLogRecord) String() string {
 	return fmt.Sprintf("{\"kind\": \"commit\", \"txNum\": %d}", l.txNumber())
 }
 
@@ -174,19 +174,19 @@ func NewRollbackLogRecord(page *dbfile.Page) LogRecord {
 	return &rollbackLogRecord{txNum: txNum}
 }
 
-func (l rollbackLogRecord) op() int {
+func (l *rollbackLogRecord) op() int {
 	return ROLLBACK
 }
 
-func (l rollbackLogRecord) txNumber() uint64 {
+func (l *rollbackLogRecord) txNumber() uint64 {
 	return l.txNum
 }
 
-func (l rollbackLogRecord) String() string {
+func (l *rollbackLogRecord) String() string {
 	return fmt.Sprintf("{\"kind\": \"rollback\", \"txNum\": %d}", l.txNumber())
 }
 
-func (l rollbackLogRecord) undo(ctx context.Context, tx *Transaction) error {
+func (l *rollbackLogRecord) undo(ctx context.Context, tx *Transaction) error {
 	return nil
 }
 
@@ -229,15 +229,15 @@ func NewSetIntLogRecord(page *dbfile.Page) LogRecord {
 	return &setIntLogRecord{txNum: txNum, blockID: blockID, offset: offset, value: value}
 }
 
-func (l setIntLogRecord) op() int {
+func (l *setIntLogRecord) op() int {
 	return SETINT
 }
 
-func (l setIntLogRecord) txNumber() uint64 {
+func (l *setIntLogRecord) txNumber() uint64 {
 	return l.txNum
 }
 
-func (l setIntLogRecord) undo(ctx context.Context, tx *Transaction) error {
+func (l *setIntLogRecord) undo(ctx context.Context, tx *Transaction) error {
 	if err := tx.Pin(ctx, l.blockID); err != nil {
 		return fmt.Errorf("failed to pin block: %w", err)
 	}
@@ -250,7 +250,7 @@ func (l setIntLogRecord) undo(ctx context.Context, tx *Transaction) error {
 	return nil
 }
 
-func (l setIntLogRecord) String() string {
+func (l *setIntLogRecord) String() string {
 	return fmt.Sprintf("{\"kind\": \"setInt\", \"txNum\": %d, \"blockID\": %s, \"offset\": %d, \"value\": %d}", l.txNumber(), l.blockID.String(), l.offset, l.value)
 }
 
@@ -311,15 +311,15 @@ func NewSetStringLogRecord(page *dbfile.Page) LogRecord {
 	return &setStringLogRecord{txNum: txNum, blockID: blockID, offset: offset, value: value}
 }
 
-func (l setStringLogRecord) op() int {
+func (l *setStringLogRecord) op() int {
 	return SETSTRING
 }
 
-func (l setStringLogRecord) txNumber() uint64 {
+func (l *setStringLogRecord) txNumber() uint64 {
 	return l.txNum
 }
 
-func (l setStringLogRecord) undo(ctx context.Context, tx *Transaction) error {
+func (l *setStringLogRecord) undo(ctx context.Context, tx *Transaction) error {
 	if err := tx.Pin(ctx, l.blockID); err != nil {
 		return fmt.Errorf("failed to pin block: %w", err)
 	}
@@ -332,7 +332,7 @@ func (l setStringLogRecord) undo(ctx context.Context, tx *Transaction) error {
 	return nil
 }
 
-func (l setStringLogRecord) String() string {
+func (l *setStringLogRecord) String() string {
 	return fmt.Sprintf("{\"kind\": \"setString\", \"txNum\": %d, \"blockID\": %s, \"offset\": %d, \"value\": %s}", l.txNumber(), l.blockID.String(), l.offset, l.value)
 }
 

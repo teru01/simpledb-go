@@ -37,11 +37,11 @@ func NewBuffer(id int, fm *dbfile.FileManager, lm *dblog.LogManager) Buffer {
 	}
 }
 
-func (b Buffer) Contents() *dbfile.Page {
+func (b *Buffer) Contents() *dbfile.Page {
 	return b.state.contents
 }
 
-func (b Buffer) BlockID() dbfile.BlockID {
+func (b *Buffer) BlockID() dbfile.BlockID {
 	return b.state.blk
 }
 
@@ -52,11 +52,11 @@ func (b *Buffer) SetModified(txnum uint64, lsn int) {
 	}
 }
 
-func (b Buffer) IsPinned() bool {
+func (b *Buffer) IsPinned() bool {
 	return b.state.pins > 0
 }
 
-func (b Buffer) ModifyingTx() uint64 {
+func (b *Buffer) ModifyingTx() uint64 {
 	return b.state.txNum
 }
 
