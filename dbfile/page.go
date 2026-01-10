@@ -28,11 +28,7 @@ func (p *Page) SetInt(offset int, value int) error {
 }
 
 func (p *Page) GetBytes(offset int) []byte {
-	p.buffer.SetPosition(offset)
-	size := p.buffer.GetCurrentInt()
-	b := make([]byte, size)
-	p.buffer.GetCurrentByte(b)
-	return b
+	return p.buffer.GetBytes(offset)
 }
 
 // bufferにbyte length, payloadを書き込む. len(int)+len(bytes)の長さのバッファを消費する
@@ -41,9 +37,7 @@ func (p *Page) SetBytes(offset int, bytes []byte) error {
 	if offset < 0 || requiredSize > p.buffer.Size() {
 		return fmt.Errorf("offset %d with %d bytes exceeds page size %d", offset, len(bytes), p.buffer.Size())
 	}
-	p.buffer.SetPosition(offset)
-	p.buffer.SetCurrentInt(len(bytes))
-	p.buffer.SetCurrentByte(bytes)
+	p.buffer.SetBytes(offset, bytes)
 	return nil
 }
 
@@ -64,7 +58,6 @@ func MaxStringLengthOnPage(strLen int) int {
 }
 
 func (p *Page) pageBuffer() *ByteBuffer {
-	p.buffer.SetPosition(0)
 	return p.buffer
 }
 

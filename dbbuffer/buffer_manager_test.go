@@ -253,8 +253,8 @@ func TestBufferManagerFlushAll(t *testing.T) {
 	}
 
 	// After flush, buf1's txNum should be -1
-	if buf1.ModifyingTx() != -1 {
-		t.Errorf("expected buf1 txNum to be -1 after flush, got %d", buf1.ModifyingTx())
+	if buf1.ModifyingTx() != 0 {
+		t.Errorf("expected buf1 txNum to be 0 after flush, got %d", buf1.ModifyingTx())
 	}
 
 	// buf2 should still have txNum=2

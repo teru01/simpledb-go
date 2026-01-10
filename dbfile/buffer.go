@@ -6,8 +6,7 @@ import (
 )
 
 type ByteBuffer struct {
-	buffer   []byte
-	position int
+	buffer []byte
 }
 
 const intSize = strconv.IntSize / 8
@@ -21,28 +20,8 @@ func NewByteBufferFromBytes(bytes []byte) *ByteBuffer {
 	return &ByteBuffer{buffer: bytes}
 }
 
-func (b *ByteBuffer) Position() int {
-	return b.position
-}
-
-func (b *ByteBuffer) SetPosition(position int) {
-	b.position = position
-}
-
 func (b *ByteBuffer) Size() int {
 	return len(b.buffer)
-}
-
-// 現在のポジションからintを取得してポジションを進める
-func (b *ByteBuffer) GetCurrentInt() int {
-	c := b.GetInt(b.Position())
-	b.SetPosition(b.Position() + intSize)
-	return c
-}
-
-func (b *ByteBuffer) SetCurrentInt(value int) {
-	b.SetInt(b.Position(), value)
-	b.SetPosition(b.Position() + intSize)
 }
 
 func (b *ByteBuffer) GetInt(offset int) int {
@@ -60,21 +39,19 @@ func (b *ByteBuffer) SetInt(offset int, value int) {
 	}
 }
 
-func (b *ByteBuffer) GetBytes(offset, len int) []byte {
+func (b *ByteBuffer) GetBytes(offset int) []byte {
+	len := b.GetInt(offset)
 	buf := make([]byte, len)
-	copy(buf, b.buffer[offset:offset+len])
+	contentPos := offset + intSize
+	copy(buf, b.buffer[contentPos:contentPos+len])
 	return buf
 }
 
-// 現在のポジションからbufの長さ分のバイトを取得してbufにセットし、ポジションを進める
-func (b *ByteBuffer) GetCurrentByte(buf []byte) {
-	copy(buf, b.GetBytes(b.Position(), len(buf)))
-	b.SetPosition(b.Position() + len(buf))
-}
-
-func (b *ByteBuffer) SetCurrentByte(buf []byte) {
-	copy(b.buffer[b.Position():b.Position()+len(buf)], buf)
-	b.SetPosition(b.Position() + len(buf))
+// len, contentをoffset位置に書き込む
+func (b *ByteBuffer) SetBytes(offset int, content []byte) {
+	b.SetInt(offset, len(content))
+	contentPos := offset + intSize
+	copy(b.buffer[contentPos:contentPos+len(content)], content)
 }
 
 func (b *ByteBuffer) GetUint64(offset int) uint64 {
