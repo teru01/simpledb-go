@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"sync/atomic"
 
 	"github.com/teru01/simpledb-go/dbbuffer"
 	"github.com/teru01/simpledb-go/dbfile"
@@ -12,7 +13,7 @@ import (
 
 const END_OF_FILE = -1
 
-var nextTxNum = 0
+var nextTxNum atomic.Uint64
 
 type Transaction struct {
 	recoveryManager    *RecoveryManager
@@ -24,7 +25,7 @@ type Transaction struct {
 }
 
 type transactionState struct {
-	txNum int
+	txNum uint64
 }
 
 func NewTransaction(fm *dbfile.FileManager, lm *dblog.LogManager, bm *dbbuffer.BufferManager) (*Transaction, error) {
@@ -45,7 +46,7 @@ func NewTransaction(fm *dbfile.FileManager, lm *dblog.LogManager, bm *dbbuffer.B
 	return tx, nil
 }
 
-func (t *Transaction) TxNum() int {
+func (t *Transaction) TxNum() uint64 {
 	return t.state.txNum
 }
 
@@ -55,7 +56,7 @@ func (t *Transaction) Commit() error {
 		return fmt.Errorf("failed to commit: %w", err)
 	}
 	t.myBufferList.UnpinAll()
-	slog.Debug("transaction committed", slog.Int("txnum", t.state.txNum))
+	slog.Debug("transaction committed", slog.Uint64("txnum", t.state.txNum))
 	return nil
 }
 
@@ -65,7 +66,7 @@ func (t *Transaction) Rollback(ctx context.Context) error {
 		return fmt.Errorf("failed to rollback: %w", err)
 	}
 	t.myBufferList.UnpinAll()
-	slog.Debug("transaction committed", slog.Int("txnum", t.state.txNum))
+	slog.Debug("transaction rollback", slog.Uint64("txnum", t.state.txNum))
 	return nil
 }
 
@@ -186,13 +187,12 @@ func (t *Transaction) AvailableBuffs() int {
 	return t.bufferManager.Available()
 }
 
-func NextTxNum() int {
-
-	nextTxNum++
-	slog.Debug("new transaction", slog.Any("nextTx", nextTxNum))
-	return nextTxNum
+func NextTxNum() uint64 {
+	nextTxNum.Add(1)
+	slog.Debug("new transaction", slog.Any("nextTx", nextTxNum.Load()))
+	return nextTxNum.Load()
 }
 
 func ResetTxNum() {
-	nextTxNum = 0
+	nextTxNum.Store(0)
 }

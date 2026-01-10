@@ -18,7 +18,7 @@ type bufferState struct {
 	contents *dbfile.Page
 	blk      dbfile.BlockID
 	pins     int
-	txNum    int // contentsをメモリ上で変更してdisk writeされてないtransaction number
+	txNum    uint64 // contentsをメモリ上で変更してdisk writeされてないtransaction number
 	lsn      int
 }
 
@@ -31,7 +31,7 @@ func NewBuffer(id int, fm *dbfile.FileManager, lm *dblog.LogManager) Buffer {
 			contents: dbfile.NewPage(fm.BlockSize()),
 			blk:      dbfile.BlockID{},
 			pins:     0,
-			txNum:    -1,
+			txNum:    0,
 			lsn:      -1,
 		},
 	}
@@ -45,7 +45,7 @@ func (b Buffer) BlockID() dbfile.BlockID {
 	return b.state.blk
 }
 
-func (b *Buffer) SetModified(txnum, lsn int) {
+func (b *Buffer) SetModified(txnum uint64, lsn int) {
 	b.state.txNum = txnum
 	if lsn > 0 {
 		b.state.lsn = lsn
@@ -56,7 +56,7 @@ func (b Buffer) IsPinned() bool {
 	return b.state.pins > 0
 }
 
-func (b Buffer) ModifyingTx() int {
+func (b Buffer) ModifyingTx() uint64 {
 	return b.state.txNum
 }
 
@@ -76,7 +76,7 @@ func (b *Buffer) assignToBlock(blockID dbfile.BlockID) error {
 // 変更をディスクに書き出す
 // WALの原則に従い、先にlogをflushする。flush()が呼ばれる前にlogにはappendされてないといけない
 func (b *Buffer) flush() error {
-	if b.state.txNum == -1 {
+	if b.state.txNum == 0 {
 		return nil
 	}
 	// log managerにappendしてくれる上位コンポーネントがあるはず. それがflushしてもいい？
@@ -86,7 +86,7 @@ func (b *Buffer) flush() error {
 	if err := b.fileManager.Write(b.state.blk, b.state.contents); err != nil {
 		return fmt.Errorf("failed to write buffer: %w", err)
 	}
-	b.state.txNum = -1
+	b.state.txNum = 0
 	return nil
 }
 

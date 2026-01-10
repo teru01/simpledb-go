@@ -12,10 +12,10 @@ type RecoveryManager struct {
 	logManager    *dblog.LogManager
 	bufferManager *dbbuffer.BufferManager
 	tx            *Transaction
-	txNum         int
+	txNum         uint64
 }
 
-func NewRecoveryManager(tx *Transaction, txNum int, logManager *dblog.LogManager, bufferManager *dbbuffer.BufferManager) (*RecoveryManager, error) {
+func NewRecoveryManager(tx *Transaction, txNum uint64, logManager *dblog.LogManager, bufferManager *dbbuffer.BufferManager) (*RecoveryManager, error) {
 	rm := &RecoveryManager{tx: tx, txNum: txNum, logManager: logManager, bufferManager: bufferManager}
 	_, err := WriteStartToLog(logManager, txNum)
 	if err != nil {
@@ -97,7 +97,7 @@ func (rm *RecoveryManager) Recover(ctx context.Context) error {
 }
 
 func (rm *RecoveryManager) doRecover(ctx context.Context) error {
-	finishedTxNum := make(map[int]struct{}, 0)
+	finishedTxNum := make(map[uint64]struct{}, 0)
 	it, err := rm.logManager.Iterator()
 	if err != nil {
 		return fmt.Errorf("failed to get iterator: %w", err)

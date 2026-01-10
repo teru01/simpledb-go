@@ -47,7 +47,7 @@ func (bm *BufferManager) Available() int {
 }
 
 // txNumによって変更されたbufferをflushする
-func (bm *BufferManager) FlushAll(txNum int) error {
+func (bm *BufferManager) FlushAll(txNum uint64) error {
 	bm.mu.Lock()
 	defer bm.mu.Unlock()
 	for i := range bm.bufferPool {

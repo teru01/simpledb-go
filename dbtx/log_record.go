@@ -20,7 +20,7 @@ const (
 
 type LogRecord interface {
 	op() int
-	txNumber() int
+	txNumber() uint64
 	undo(ctx context.Context, tx *Transaction) error
 }
 
@@ -53,8 +53,8 @@ func (l checkpointLogRecord) op() int {
 	return CHECKPOINT
 }
 
-func (l checkpointLogRecord) txNumber() int {
-	return -1
+func (l checkpointLogRecord) txNumber() uint64 {
+	return 0
 }
 
 func (l checkpointLogRecord) undo(ctx context.Context, tx *Transaction) error {
@@ -79,12 +79,12 @@ func WriteCheckpointToLog(lm *dblog.LogManager) (int, error) {
 }
 
 type startLogRecord struct {
-	txNum int
+	txNum uint64
 }
 
 func NewStartLogRecord(page *dbfile.Page) LogRecord {
 	txPos := size.IntSize
-	txNum := page.GetInt(txPos)
+	txNum := page.GetUint64(txPos)
 	return &startLogRecord{txNum: txNum}
 }
 
@@ -92,7 +92,7 @@ func (l startLogRecord) op() int {
 	return START
 }
 
-func (l startLogRecord) txNumber() int {
+func (l startLogRecord) txNumber() uint64 {
 	return l.txNum
 }
 
@@ -104,14 +104,14 @@ func (l startLogRecord) undo(ctx context.Context, tx *Transaction) error {
 	return nil
 }
 
-func WriteStartToLog(lm *dblog.LogManager, txNum int) (int, error) {
-	b := make([]byte, size.IntSize*2)
+func WriteStartToLog(lm *dblog.LogManager, txNum uint64) (int, error) {
+	b := make([]byte, size.IntSize+size.Uint64Size)
 	txPos := size.IntSize
 	page := dbfile.NewPageFromBytes(b)
 	if err := page.SetInt(0, START); err != nil {
 		return 0, fmt.Errorf("failed to set op: %w", err)
 	}
-	if err := page.SetInt(txPos, txNum); err != nil {
+	if err := page.SetUint64(txPos, txNum); err != nil {
 		return 0, fmt.Errorf("failed to set txNum: %w", err)
 	}
 	lsn, err := lm.Append(b)
@@ -122,12 +122,12 @@ func WriteStartToLog(lm *dblog.LogManager, txNum int) (int, error) {
 }
 
 type commitLogRecord struct {
-	txNum int
+	txNum uint64
 }
 
 func NewCommitLogRecord(page *dbfile.Page) LogRecord {
 	txPos := size.IntSize
-	txNum := page.GetInt(txPos)
+	txNum := page.GetUint64(txPos)
 	return &commitLogRecord{txNum: txNum}
 }
 
@@ -135,7 +135,7 @@ func (l commitLogRecord) op() int {
 	return COMMIT
 }
 
-func (l commitLogRecord) txNumber() int {
+func (l commitLogRecord) txNumber() uint64 {
 	return l.txNum
 }
 
@@ -147,14 +147,14 @@ func (l commitLogRecord) String() string {
 	return fmt.Sprintf("{\"kind\": \"commit\", \"txNum\": %d}", l.txNumber())
 }
 
-func WriteCommitToLog(lm *dblog.LogManager, txNum int) (int, error) {
-	b := make([]byte, size.IntSize*2)
+func WriteCommitToLog(lm *dblog.LogManager, txNum uint64) (int, error) {
+	b := make([]byte, size.IntSize+size.Uint64Size)
 	txPos := size.IntSize
 	page := dbfile.NewPageFromBytes(b)
 	if err := page.SetInt(0, COMMIT); err != nil {
 		return 0, fmt.Errorf("failed to set op: %w", err)
 	}
-	if err := page.SetInt(txPos, txNum); err != nil {
+	if err := page.SetUint64(txPos, txNum); err != nil {
 		return 0, fmt.Errorf("failed to set txNum: %w", err)
 	}
 	lsn, err := lm.Append(b)
@@ -165,12 +165,12 @@ func WriteCommitToLog(lm *dblog.LogManager, txNum int) (int, error) {
 }
 
 type rollbackLogRecord struct {
-	txNum int
+	txNum uint64
 }
 
 func NewRollbackLogRecord(page *dbfile.Page) LogRecord {
 	txPos := size.IntSize
-	txNum := page.GetInt(txPos)
+	txNum := page.GetUint64(txPos)
 	return &rollbackLogRecord{txNum: txNum}
 }
 
@@ -178,7 +178,7 @@ func (l rollbackLogRecord) op() int {
 	return ROLLBACK
 }
 
-func (l rollbackLogRecord) txNumber() int {
+func (l rollbackLogRecord) txNumber() uint64 {
 	return l.txNum
 }
 
@@ -190,14 +190,14 @@ func (l rollbackLogRecord) undo(ctx context.Context, tx *Transaction) error {
 	return nil
 }
 
-func WriteRollbackToLog(lm *dblog.LogManager, txNum int) (int, error) {
-	b := make([]byte, size.IntSize*2)
+func WriteRollbackToLog(lm *dblog.LogManager, txNum uint64) (int, error) {
+	b := make([]byte, size.IntSize+size.Uint64Size)
 	txPos := size.IntSize
 	page := dbfile.NewPageFromBytes(b)
 	if err := page.SetInt(0, ROLLBACK); err != nil {
 		return 0, fmt.Errorf("failed to set op: %w", err)
 	}
-	if err := page.SetInt(txPos, txNum); err != nil {
+	if err := page.SetUint64(txPos, txNum); err != nil {
 		return 0, fmt.Errorf("failed to set txNum: %w", err)
 	}
 	lsn, err := lm.Append(b)
@@ -208,7 +208,7 @@ func WriteRollbackToLog(lm *dblog.LogManager, txNum int) (int, error) {
 }
 
 type setIntLogRecord struct {
-	txNum   int
+	txNum   uint64
 	blockID dbfile.BlockID
 	offset  int
 	value   int
@@ -216,8 +216,8 @@ type setIntLogRecord struct {
 
 func NewSetIntLogRecord(page *dbfile.Page) LogRecord {
 	txPos := size.IntSize
-	txNum := page.GetInt(txPos)
-	fileNamePos := txPos + size.IntSize
+	txNum := page.GetUint64(txPos)
+	fileNamePos := txPos + size.Uint64Size
 	fileName := page.GetString(fileNamePos)
 	blockNumPos := fileNamePos + dbfile.MaxStringLengthOnPage(len(fileName))
 	blockNum := page.GetInt(blockNumPos)
@@ -233,7 +233,7 @@ func (l setIntLogRecord) op() int {
 	return SETINT
 }
 
-func (l setIntLogRecord) txNumber() int {
+func (l setIntLogRecord) txNumber() uint64 {
 	return l.txNum
 }
 
@@ -255,9 +255,9 @@ func (l setIntLogRecord) String() string {
 }
 
 // SETINT,TXNUM,FILENAME,BLOCKNUM,OFFSET,VALUE
-func WriteIntToLog(lm *dblog.LogManager, txNum int, blockID dbfile.BlockID, offset int, value int) (int, error) {
+func WriteIntToLog(lm *dblog.LogManager, txNum uint64, blockID dbfile.BlockID, offset int, value int) (int, error) {
 	txPos := size.IntSize
-	fileNamePos := txPos + size.IntSize
+	fileNamePos := txPos + size.Uint64Size
 	blockPos := fileNamePos + dbfile.MaxStringLengthOnPage(len(blockID.FileName()))
 	offsetPos := blockPos + size.IntSize
 	valuePos := offsetPos + size.IntSize
@@ -267,7 +267,7 @@ func WriteIntToLog(lm *dblog.LogManager, txNum int, blockID dbfile.BlockID, offs
 	if err := page.SetInt(0, SETINT); err != nil {
 		return 0, fmt.Errorf("failed to set op: %w", err)
 	}
-	if err := page.SetInt(txPos, txNum); err != nil {
+	if err := page.SetUint64(txPos, txNum); err != nil {
 		return 0, fmt.Errorf("failed to set txNum: %w", err)
 	}
 	if err := page.SetString(fileNamePos, blockID.FileName()); err != nil {
@@ -290,7 +290,7 @@ func WriteIntToLog(lm *dblog.LogManager, txNum int, blockID dbfile.BlockID, offs
 }
 
 type setStringLogRecord struct {
-	txNum   int
+	txNum   uint64
 	blockID dbfile.BlockID
 	offset  int
 	value   string
@@ -298,8 +298,8 @@ type setStringLogRecord struct {
 
 func NewSetStringLogRecord(page *dbfile.Page) LogRecord {
 	txPos := size.IntSize
-	txNum := page.GetInt(txPos)
-	fileNamePos := txPos + size.IntSize
+	txNum := page.GetUint64(txPos)
+	fileNamePos := txPos + size.Uint64Size
 	fileName := page.GetString(fileNamePos)
 	blockNumPos := fileNamePos + dbfile.MaxStringLengthOnPage(len(fileName))
 	blockNum := page.GetInt(blockNumPos)
@@ -315,7 +315,7 @@ func (l setStringLogRecord) op() int {
 	return SETSTRING
 }
 
-func (l setStringLogRecord) txNumber() int {
+func (l setStringLogRecord) txNumber() uint64 {
 	return l.txNum
 }
 
@@ -337,9 +337,9 @@ func (l setStringLogRecord) String() string {
 }
 
 // SETSTRING,TXNUM,FILENAME,BLOCKNUM,OFFSET,VALUE
-func WriteStringToLog(lm *dblog.LogManager, txNum int, blockID dbfile.BlockID, offset int, value string) (int, error) {
+func WriteStringToLog(lm *dblog.LogManager, txNum uint64, blockID dbfile.BlockID, offset int, value string) (int, error) {
 	txPos := size.IntSize
-	fileNamePos := txPos + size.IntSize
+	fileNamePos := txPos + size.Uint64Size
 	blockPos := fileNamePos + dbfile.MaxStringLengthOnPage(len(blockID.FileName()))
 	offsetPos := blockPos + size.IntSize
 	valuePos := offsetPos + size.IntSize
@@ -349,7 +349,7 @@ func WriteStringToLog(lm *dblog.LogManager, txNum int, blockID dbfile.BlockID, o
 	if err := page.SetInt(0, SETSTRING); err != nil {
 		return 0, fmt.Errorf("failed to set op: %w", err)
 	}
-	if err := page.SetInt(txPos, txNum); err != nil {
+	if err := page.SetUint64(txPos, txNum); err != nil {
 		return 0, fmt.Errorf("failed to set txNum: %w", err)
 	}
 	if err := page.SetString(fileNamePos, blockID.FileName()); err != nil {

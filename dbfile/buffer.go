@@ -11,6 +11,7 @@ type ByteBuffer struct {
 }
 
 const intSize = strconv.IntSize / 8
+const uint64Size = 8
 
 func NewByteBuffer(blockSize int) *ByteBuffer {
 	return &ByteBuffer{buffer: make([]byte, blockSize)}
@@ -74,4 +75,12 @@ func (b *ByteBuffer) GetCurrentByte(buf []byte) {
 func (b *ByteBuffer) SetCurrentByte(buf []byte) {
 	copy(b.buffer[b.Position():b.Position()+len(buf)], buf)
 	b.SetPosition(b.Position() + len(buf))
+}
+
+func (b *ByteBuffer) GetUint64(offset int) uint64 {
+	return binary.BigEndian.Uint64(b.buffer[offset : offset+uint64Size])
+}
+
+func (b *ByteBuffer) SetUint64(offset int, value uint64) {
+	binary.BigEndian.PutUint64(b.buffer[offset:offset+uint64Size], value)
 }

@@ -195,7 +195,7 @@ func TestTransactionGetStringParallel(t *testing.T) {
 	}
 	wg.Wait()
 	next := dbtx.NextTxNum()
-	if next != txCount+2 {
+	if next != uint64(txCount+2) {
 		t.Fatalf("transaction number mismatch, expected %d actual %d", txCount+2, next)
 	}
 }

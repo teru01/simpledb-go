@@ -71,3 +71,15 @@ func (p *Page) pageBuffer() *ByteBuffer {
 func (p *Page) Length() int {
 	return p.buffer.Size()
 }
+
+func (p *Page) GetUint64(offset int) uint64 {
+	return p.buffer.GetUint64(offset)
+}
+
+func (p *Page) SetUint64(offset int, value uint64) error {
+	if offset < 0 || offset+8 > p.buffer.Size() {
+		return fmt.Errorf("offset %d out of range [0, %d)", offset, p.buffer.Size()-8+1)
+	}
+	p.buffer.SetUint64(offset, value)
+	return nil
+}
