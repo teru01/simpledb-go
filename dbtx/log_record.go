@@ -299,9 +299,12 @@ type setStringLogRecord struct {
 func NewSetStringLogRecord(page *dbfile.Page) LogRecord {
 	txPos := size.IntSize
 	txNum := page.GetInt(txPos)
-	blockIDPos := txPos + size.IntSize
-	blockID := dbfile.NewBlockID(page.GetString(blockIDPos), page.GetInt(blockIDPos+size.IntSize))
-	offsetPos := blockIDPos + page.MaxLength(len(blockID.FileName()))
+	fileNamePos := txPos + size.IntSize
+	fileName := page.GetString(fileNamePos)
+	blockNumPos := fileNamePos + dbfile.MaxStringLengthOnPage(len(fileName))
+	blockNum := page.GetInt(blockNumPos)
+	blockID := dbfile.NewBlockID(fileName, blockNum)
+	offsetPos := blockNumPos + size.IntSize
 	offset := page.GetInt(offsetPos)
 	valuePos := offsetPos + size.IntSize
 	value := page.GetString(valuePos)
@@ -333,6 +336,7 @@ func (l setStringLogRecord) String() string {
 	return fmt.Sprintf("{\"kind\": \"setString\", \"txNum\": %d, \"blockID\": %s, \"offset\": %d, \"value\": %s}", l.txNumber(), l.blockID.String(), l.offset, l.value)
 }
 
+// SETSTRING,TXNUM,FILENAME,BLOCKNUM,OFFSET,VALUE
 func WriteStringToLog(lm *dblog.LogManager, txNum int, blockID dbfile.BlockID, offset int, value string) (int, error) {
 	txPos := size.IntSize
 	fileNamePos := txPos + size.IntSize

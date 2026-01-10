@@ -183,7 +183,7 @@ func TestTransactionGetStringParallel(t *testing.T) {
 			}
 			val, err := tx.GetString(ctx, blk, 0)
 			if err != nil {
-				t.Errorf("failed to get int: %v", err)
+				t.Errorf("failed to get string: %v", err)
 			}
 			if val != answer {
 				t.Errorf("expected value %s, got %s", answer, val)
