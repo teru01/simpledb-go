@@ -34,17 +34,17 @@ func NewTableScan(ctx context.Context, tx *dbtx.Transaction, tableName string, l
 	}
 	size, err := tx.Size(ctx, fileName)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get size: %w", err)
+		return nil, fmt.Errorf("get table size for %q: %w", fileName, err)
 	}
 	if size == 0 {
 		state, err = t.moveToNewBlock(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("failed to move to new block: %w", err)
+			return nil, fmt.Errorf("move to new block for table %q: %w", t.fileName, err)
 		}
 	} else {
 		state, err = t.moveToBlock(0)
 		if err != nil {
-			return nil, fmt.Errorf("failed to move to block 0: %w", err)
+			return nil, fmt.Errorf("move to block 0 for table %q: %w", t.fileName, err)
 		}
 	}
 	t.state = state
@@ -54,7 +54,7 @@ func NewTableScan(ctx context.Context, tx *dbtx.Transaction, tableName string, l
 func (t *TableScan) close() error {
 	if t.state.recordPage != nil {
 		if err := t.tx.UnPin(t.state.recordPage.Block()); err != nil {
-			return fmt.Errorf("faield to unpin: %w", err)
+			return fmt.Errorf("unpin block %s: %w", t.state.recordPage.Block(), err)
 		}
 	}
 	return nil
@@ -63,7 +63,7 @@ func (t *TableScan) close() error {
 func (t *TableScan) SetStateToBeforeFirst() error {
 	state, err := t.moveToBlock(0)
 	if err != nil {
-		return fmt.Errorf("faied to move blk 0: %w", err)
+		return fmt.Errorf("move to block 0 for table %q: %w", t.fileName, err)
 	}
 	t.state = state
 	return nil
@@ -72,7 +72,7 @@ func (t *TableScan) SetStateToBeforeFirst() error {
 func (t *TableScan) GetInt(ctx context.Context, fieldName string) (int, error) {
 	i, err := t.state.recordPage.GetInt(ctx, t.state.currentSlot, fieldName)
 	if err != nil {
-		return 0, fmt.Errorf("GetInt failed: %w", err)
+		return 0, fmt.Errorf("get int value from field %q at slot %d: %w", fieldName, t.state.currentSlot, err)
 	}
 	return i, nil
 }
@@ -80,7 +80,7 @@ func (t *TableScan) GetInt(ctx context.Context, fieldName string) (int, error) {
 func (t *TableScan) GetString(ctx context.Context, fieldName string) (string, error) {
 	s, err := t.state.recordPage.GetString(ctx, t.state.currentSlot, fieldName)
 	if err != nil {
-		return "", fmt.Errorf("recordPage GetString failed: %w", err)
+		return "", fmt.Errorf("get string value from field %q at slot %d: %w", fieldName, t.state.currentSlot, err)
 	}
 	return s, nil
 }
@@ -100,7 +100,7 @@ func (t *TableScan) GetVal(ctx context.Context, fieldName string) (dbconstant.Co
 		}
 		return dbconstant.NewStringConstant(s), err
 	}
-	return nil, fmt.Errorf("unknown field type: %d", t.layout.Schema().FieldType(fieldName))
+	return nil, fmt.Errorf("unknown field type %d for field %q", t.layout.Schema().FieldType(fieldName), fieldName)
 }
 
 func (t *TableScan) HasField(fieldName string) bool {
@@ -109,14 +109,14 @@ func (t *TableScan) HasField(fieldName string) bool {
 
 func (t *TableScan) SetInt(ctx context.Context, fieldName string, value int) error {
 	if err := t.state.recordPage.SetInt(ctx, t.state.currentSlot, fieldName, value); err != nil {
-		return fmt.Errorf("recordPage SetInt failed: %w", err)
+		return fmt.Errorf("set int value %d to field %q at slot %d: %w", value, fieldName, t.state.currentSlot, err)
 	}
 	return nil
 }
 
 func (t *TableScan) SetString(ctx context.Context, fieldName string, value string) error {
 	if err := t.state.recordPage.SetString(ctx, t.state.currentSlot, fieldName, value); err != nil {
-		return fmt.Errorf("recordPage SetString failed: %w", err)
+		return fmt.Errorf("set string value %q to field %q at slot %d: %w", value, fieldName, t.state.currentSlot, err)
 	}
 	return nil
 }
@@ -126,23 +126,23 @@ func (t *TableScan) SetValue(ctx context.Context, fieldName string, value dbcons
 	case FieldTypeInt:
 		val, ok := value.AsRaw().(int)
 		if !ok {
-			return fmt.Errorf("value type mismatch: %v", value)
+			return fmt.Errorf("value type mismatch for field %q: expected int, got %T", fieldName, value.AsRaw())
 		}
 		return t.SetInt(ctx, fieldName, val)
 	case FieldTypeString:
 		val, ok := value.AsRaw().(string)
 		if !ok {
-			return fmt.Errorf("value type mismatch: %v", value)
+			return fmt.Errorf("value type mismatch for field %q: expected string, got %T", fieldName, value.AsRaw())
 		}
 		return t.SetString(ctx, fieldName, val)
 	}
-	return fmt.Errorf("unknown field type: %d", t.layout.Schema().FieldType(fieldName))
+	return fmt.Errorf("unknown field type %d for field %q", t.layout.Schema().FieldType(fieldName), fieldName)
 }
 
 func (t *TableScan) moveToNextAvailableSlotInBlock(ctx context.Context) error {
 	slot, err := t.state.recordPage.InsertNextAvabilableSlotAfter(ctx, t.state.currentSlot)
 	if err != nil {
-		return fmt.Errorf("failed to insert next available slot after: %w", err)
+		return fmt.Errorf("insert next available slot after slot %d in block %s: %w", t.state.currentSlot, t.state.recordPage.Block(), err)
 	}
 	t.state.currentSlot = slot
 	return nil
@@ -151,28 +151,28 @@ func (t *TableScan) moveToNextAvailableSlotInBlock(ctx context.Context) error {
 // 利用可能なSlotをファイル全体から探しstateに反映する. 無ければ作る
 func (t *TableScan) Insert(ctx context.Context) error {
 	if err := t.moveToNextAvailableSlotInBlock(ctx); err != nil {
-		return fmt.Errorf("moveToNextAvailableSlotInBlock failed: %w", err)
+		return fmt.Errorf("move to next available slot in block: %w", err)
 	}
 	for t.state.currentSlot < 0 {
 		isLast, err := t.atLastBlock(ctx)
 		if err != nil {
-			return fmt.Errorf("failed to get last block: %w", err)
+			return fmt.Errorf("check if at last block for table %q: %w", t.fileName, err)
 		}
 		if isLast {
 			state, err := t.moveToNewBlock(ctx)
 			if err != nil {
-				return fmt.Errorf("failed to move to new block: %w", err)
+				return fmt.Errorf("move to new block for table %q: %w", t.fileName, err)
 			}
 			t.state = state
 		} else {
 			state, err := t.moveToBlock(t.state.recordPage.blk.BlockNum() + 1)
 			if err != nil {
-				return fmt.Errorf("failed to move to %d: %w", t.state.recordPage.blk.BlockNum()+1, err)
+				return fmt.Errorf("move to block %d for table %q: %w", t.state.recordPage.blk.BlockNum()+1, t.fileName, err)
 			}
 			t.state = state
 		}
 		if err := t.moveToNextAvailableSlotInBlock(ctx); err != nil {
-			return fmt.Errorf("moveToNextAvailableSlotInBlock failed: %w", err)
+			return fmt.Errorf("move to next available slot in block: %w", err)
 		}
 	}
 	return nil
@@ -189,25 +189,25 @@ func (t *TableScan) Delete(ctx context.Context) error {
 func (t *TableScan) Next(ctx context.Context) (bool, error) {
 	slot, err := t.state.recordPage.NextInUseSlotAfter(ctx, t.state.currentSlot)
 	if err != nil {
-		return false, fmt.Errorf("faield to get nextInUseSlotAfter: %w", err)
+		return false, fmt.Errorf("get next in-use slot after slot %d in block %s: %w", t.state.currentSlot, t.state.recordPage.Block(), err)
 	}
 	for slot < 0 {
 		// 使用中slotが存在しないなら次のブロック
 		isLast, err := t.atLastBlock(ctx)
 		if err != nil {
-			return false, fmt.Errorf("failed to check at last block: %w", err)
+			return false, fmt.Errorf("check if at last block for table %q: %w", t.fileName, err)
 		}
 		if isLast {
 			return false, nil
 		}
 		state, err := t.moveToBlock(t.state.recordPage.Block().BlockNum() + 1)
 		if err != nil {
-			return false, fmt.Errorf("faield to moveToBlock: %w", err)
+			return false, fmt.Errorf("move to block %d for table %q: %w", t.state.recordPage.Block().BlockNum()+1, t.fileName, err)
 		}
 		t.state = state
 		slot, err = t.state.recordPage.NextInUseSlotAfter(ctx, t.state.currentSlot)
 		if err != nil {
-			return false, fmt.Errorf("faield to get nextInUseSlotAfter: %w", err)
+			return false, fmt.Errorf("get next in-use slot after slot %d in block %s: %w", t.state.currentSlot, t.state.recordPage.Block(), err)
 		}
 		t.state.currentSlot = slot
 	}
@@ -217,7 +217,7 @@ func (t *TableScan) Next(ctx context.Context) (bool, error) {
 // blkNumに移動し、新たなstateを返す
 func (t *TableScan) moveToBlock(blkNum int) (*TableScanState, error) {
 	if err := t.close(); err != nil {
-		return nil, fmt.Errorf("failed to close: %w", err)
+		return nil, fmt.Errorf("close current block before moving to block %d: %w", blkNum, err)
 	}
 	rp := NewRecordPage(t.tx, dbfile.NewBlockID(t.fileName, blkNum), t.layout)
 	return &TableScanState{
@@ -229,15 +229,15 @@ func (t *TableScan) moveToBlock(blkNum int) (*TableScanState, error) {
 // blockを追加し、新たなstateを返す
 func (t *TableScan) moveToNewBlock(ctx context.Context) (*TableScanState, error) {
 	if err := t.close(); err != nil {
-		return nil, fmt.Errorf("failed to close: %w", err)
+		return nil, fmt.Errorf("close current block before appending new block: %w", err)
 	}
 	blk, err := t.tx.Append(ctx, t.fileName)
 	if err != nil {
-		return nil, fmt.Errorf("failed to append: %w", err)
+		return nil, fmt.Errorf("append new block to table %q: %w", t.fileName, err)
 	}
 	rp := NewRecordPage(t.tx, blk, t.layout)
 	if err := rp.Format(ctx); err != nil {
-		return nil, fmt.Errorf("failed to format: %w", err)
+		return nil, fmt.Errorf("format new block %s: %w", blk, err)
 	}
 	return &TableScanState{
 		recordPage:  rp,
@@ -248,7 +248,7 @@ func (t *TableScan) moveToNewBlock(ctx context.Context) (*TableScanState, error)
 func (t *TableScan) atLastBlock(ctx context.Context) (bool, error) {
 	size, err := t.tx.Size(ctx, t.fileName)
 	if err != nil {
-		return false, fmt.Errorf("failed to get size: %w", err)
+		return false, fmt.Errorf("get table size for %q: %w", t.fileName, err)
 	}
 	return t.state.recordPage.Block().BlockNum() == size-1, nil
 }

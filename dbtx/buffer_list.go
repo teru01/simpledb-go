@@ -27,13 +27,13 @@ func (b *BufferList) Buffer(blk dbfile.BlockID) (*dbbuffer.Buffer, error) {
 	if buf, ok := b.buffers[blk]; ok {
 		return buf, nil
 	}
-	return nil, fmt.Errorf("no such block on buffer %s", blk)
+	return nil, fmt.Errorf("block %s not found in buffer list", blk)
 }
 
 func (b *BufferList) Pin(ctx context.Context, blk dbfile.BlockID) error {
 	buf, err := b.bufferManager.Pin(ctx, blk)
 	if err != nil {
-		return fmt.Errorf("failed to pin: %w", err)
+		return fmt.Errorf("pin block %s: %w", blk, err)
 	}
 	b.buffers[blk] = buf
 	b.pinsCount[blk]++
@@ -43,7 +43,7 @@ func (b *BufferList) Pin(ctx context.Context, blk dbfile.BlockID) error {
 func (b *BufferList) UnPin(blk dbfile.BlockID) error {
 	buf, err := b.Buffer(blk)
 	if err != nil {
-		return fmt.Errorf("failed to unpin: %w", err)
+		return fmt.Errorf("unpin block %s: %w", blk, err)
 	}
 	b.bufferManager.Unpin(buf)
 	b.pinsCount[blk]--

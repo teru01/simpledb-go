@@ -63,10 +63,10 @@ func (b *Buffer) ModifyingTx() uint64 {
 // bufferとblockとの対応関係を変更する
 func (b *Buffer) assignToBlock(blockID dbfile.BlockID) error {
 	if err := b.flush(); err != nil {
-		return fmt.Errorf("faield to flush: %w", err)
+		return fmt.Errorf("flush buffer %d before assigning to block %s: %w", b.ID, blockID, err)
 	}
 	if err := b.fileManager.Read(blockID, b.state.contents); err != nil {
-		return fmt.Errorf("faield to read to assign block: %w", err)
+		return fmt.Errorf("read block %s to buffer %d: %w", blockID, b.ID, err)
 	}
 	b.state.blk = blockID
 	b.state.pins = 0
@@ -84,7 +84,7 @@ func (b *Buffer) flush() error {
 		return err
 	}
 	if err := b.fileManager.Write(b.state.blk, b.state.contents); err != nil {
-		return fmt.Errorf("failed to write buffer: %w", err)
+		return fmt.Errorf("write buffer %d to block %s: %w", b.ID, b.state.blk, err)
 	}
 	b.state.txNum = 0
 	return nil

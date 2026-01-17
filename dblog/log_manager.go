@@ -36,7 +36,7 @@ func NewLogManager(fm *dbfile.FileManager, logFileName string) (*LogManager, err
 
 	logSize, err := fm.FileBlockLength(logFileName)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get file block length: %w", err)
+		return nil, fmt.Errorf("get file block length for log file %q: %w", logFileName, err)
 	}
 
 	b := make([]byte, fm.BlockSize())
@@ -49,7 +49,7 @@ func NewLogManager(fm *dbfile.FileManager, logFileName string) (*LogManager, err
 		err = lm.fileManager.Read(currentBlock, p)
 	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to init logPage: %w", err)
+		return nil, fmt.Errorf("initialize log page for log file %q: %w", logFileName, err)
 	}
 
 	lm.state = logManagerState{
@@ -82,7 +82,7 @@ func (lm *LogManager) Flush() error {
 // 最新のlog sequenceまでFlushする
 func (lm *LogManager) flushlocked() error {
 	if err := lm.fileManager.Write(lm.state.currentBlock, lm.state.logPage); err != nil {
-		return fmt.Errorf("failed to flush to block %v: %w", lm.state.currentBlock, err)
+		return fmt.Errorf("flush log page to block %s: %w", lm.state.currentBlock, err)
 	}
 	lm.state.lastSavedLSN = lm.state.latestLSN
 	return nil
@@ -98,11 +98,11 @@ func (lm *LogManager) Append(logRecord []byte) (int, error) {
 	if boundary-bytesNeeded < size.IntSize {
 		// はみ出る
 		if err := lm.flushlocked(); err != nil {
-			return 0, fmt.Errorf("failed to Append: %w", err)
+			return 0, fmt.Errorf("flush log page before appending new block: %w", err)
 		}
 		blk, err := lm.appendNewBlockLocked(lm.state.logPage)
 		if err != nil {
-			return 0, fmt.Errorf("failed to Append: %w", err)
+			return 0, fmt.Errorf("append new block to log file %q: %w", lm.logFileName, err)
 		}
 		lm.state.currentBlock = blk
 		boundary = lm.state.logPage.GetInt(0)
@@ -123,7 +123,7 @@ func (lm *LogManager) Append(logRecord []byte) (int, error) {
 func (lm *LogManager) appendNewBlockLocked(p *dbfile.Page) (dbfile.BlockID, error) {
 	block, err := lm.fileManager.Append(lm.logFileName)
 	if err != nil {
-		return dbfile.BlockID{}, fmt.Errorf("faile to append block to %s: %w", lm.logFileName, err)
+		return dbfile.BlockID{}, fmt.Errorf("append new block to log file %q: %w", lm.logFileName, err)
 	}
 	if err := p.SetInt(0, lm.fileManager.BlockSize()); err != nil {
 		return dbfile.BlockID{}, err
@@ -136,7 +136,7 @@ func (lm *LogManager) appendNewBlockLocked(p *dbfile.Page) (dbfile.BlockID, erro
 
 func (lm *LogManager) Iterator() (iter.Seq2[[]byte, error], error) {
 	if err := lm.Flush(); err != nil {
-		return nil, fmt.Errorf("failed to create iter")
+		return nil, fmt.Errorf("flush log before creating iterator: %w", err)
 	}
 
 	// appendしかされず過去のブロックは変更されないのでcurrent blockだけread lockする
@@ -149,7 +149,7 @@ func (lm *LogManager) Iterator() (iter.Seq2[[]byte, error], error) {
 			currentBlock := dbfile.NewBlockID(lm.logFileName, i)
 			p := dbfile.NewPage(lm.fileManager.BlockSize())
 			if err := lm.fileManager.Read(currentBlock, p); err != nil {
-				iterError = fmt.Errorf("failed to read current block: %w", err)
+				iterError = fmt.Errorf("read log block %s: %w", currentBlock, err)
 				if !yield(nil, iterError) {
 					return
 				}

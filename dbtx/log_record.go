@@ -69,11 +69,11 @@ func WriteCheckpointToLog(lm *dblog.LogManager) (int, error) {
 	b := make([]byte, size.IntSize)
 	page := dbfile.NewPageFromBytes(b)
 	if err := page.SetInt(0, CHECKPOINT); err != nil {
-		return 0, fmt.Errorf("failed to set op: %w", err)
+		return 0, fmt.Errorf("set checkpoint operation code at offset 0: %w", err)
 	}
 	lsn, err := lm.Append(b)
 	if err != nil {
-		return 0, fmt.Errorf("failed to write checkpoint to log: %w", err)
+		return 0, fmt.Errorf("append checkpoint record to log: %w", err)
 	}
 	return lsn, nil
 }
@@ -109,14 +109,14 @@ func WriteStartToLog(lm *dblog.LogManager, txNum uint64) (int, error) {
 	txPos := size.IntSize
 	page := dbfile.NewPageFromBytes(b)
 	if err := page.SetInt(0, START); err != nil {
-		return 0, fmt.Errorf("failed to set op: %w", err)
+		return 0, fmt.Errorf("set start operation code at offset 0: %w", err)
 	}
 	if err := page.SetUint64(txPos, txNum); err != nil {
-		return 0, fmt.Errorf("failed to set txNum: %w", err)
+		return 0, fmt.Errorf("set transaction number %d at offset %d: %w", txNum, txPos, err)
 	}
 	lsn, err := lm.Append(b)
 	if err != nil {
-		return 0, fmt.Errorf("failed to write start to log: %w", err)
+		return 0, fmt.Errorf("append start record to log for transaction %d: %w", txNum, err)
 	}
 	return lsn, nil
 }
@@ -152,14 +152,14 @@ func WriteCommitToLog(lm *dblog.LogManager, txNum uint64) (int, error) {
 	txPos := size.IntSize
 	page := dbfile.NewPageFromBytes(b)
 	if err := page.SetInt(0, COMMIT); err != nil {
-		return 0, fmt.Errorf("failed to set op: %w", err)
+		return 0, fmt.Errorf("set commit operation code at offset 0: %w", err)
 	}
 	if err := page.SetUint64(txPos, txNum); err != nil {
-		return 0, fmt.Errorf("failed to set txNum: %w", err)
+		return 0, fmt.Errorf("set transaction number %d at offset %d: %w", txNum, txPos, err)
 	}
 	lsn, err := lm.Append(b)
 	if err != nil {
-		return 0, fmt.Errorf("failed to write commit to log: %w", err)
+		return 0, fmt.Errorf("append commit record to log for transaction %d: %w", txNum, err)
 	}
 	return lsn, nil
 }
@@ -195,14 +195,14 @@ func WriteRollbackToLog(lm *dblog.LogManager, txNum uint64) (int, error) {
 	txPos := size.IntSize
 	page := dbfile.NewPageFromBytes(b)
 	if err := page.SetInt(0, ROLLBACK); err != nil {
-		return 0, fmt.Errorf("failed to set op: %w", err)
+		return 0, fmt.Errorf("set rollback operation code at offset 0: %w", err)
 	}
 	if err := page.SetUint64(txPos, txNum); err != nil {
-		return 0, fmt.Errorf("failed to set txNum: %w", err)
+		return 0, fmt.Errorf("set transaction number %d at offset %d: %w", txNum, txPos, err)
 	}
 	lsn, err := lm.Append(b)
 	if err != nil {
-		return 0, fmt.Errorf("failed to write rollback to log: %w", err)
+		return 0, fmt.Errorf("append rollback record to log for transaction %d: %w", txNum, err)
 	}
 	return lsn, nil
 }
@@ -239,13 +239,13 @@ func (l *setIntLogRecord) txNumber() uint64 {
 
 func (l *setIntLogRecord) undo(ctx context.Context, tx *Transaction) error {
 	if err := tx.Pin(ctx, l.blockID); err != nil {
-		return fmt.Errorf("failed to pin block: %w", err)
+		return fmt.Errorf("pin block %s for undo: %w", l.blockID, err)
 	}
 	if err := tx.SetInt(ctx, l.blockID, l.offset, l.value, false); err != nil {
-		return fmt.Errorf("failed to set int: %w", err)
+		return fmt.Errorf("set int value %d at offset %d in block %s for undo: %w", l.value, l.offset, l.blockID, err)
 	}
 	if err := tx.UnPin(l.blockID); err != nil {
-		return fmt.Errorf("failed to unpin block: %w", err)
+		return fmt.Errorf("unpin block %s after undo: %w", l.blockID, err)
 	}
 	return nil
 }
@@ -265,26 +265,26 @@ func WriteIntToLog(lm *dblog.LogManager, txNum uint64, blockID dbfile.BlockID, o
 	b := make([]byte, recordLen)
 	page := dbfile.NewPageFromBytes(b)
 	if err := page.SetInt(0, SETINT); err != nil {
-		return 0, fmt.Errorf("failed to set op: %w", err)
+		return 0, fmt.Errorf("set SETINT operation code at offset 0: %w", err)
 	}
 	if err := page.SetUint64(txPos, txNum); err != nil {
-		return 0, fmt.Errorf("failed to set txNum: %w", err)
+		return 0, fmt.Errorf("set transaction number %d at offset %d: %w", txNum, txPos, err)
 	}
 	if err := page.SetString(fileNamePos, blockID.FileName()); err != nil {
-		return 0, fmt.Errorf("failed to set blockID: %w", err)
+		return 0, fmt.Errorf("set block file name %q at offset %d: %w", blockID.FileName(), fileNamePos, err)
 	}
 	if err := page.SetInt(blockPos, blockID.BlockNum()); err != nil {
-		return 0, fmt.Errorf("failed to set blockNum: %w", err)
+		return 0, fmt.Errorf("set block number %d at offset %d: %w", blockID.BlockNum(), blockPos, err)
 	}
 	if err := page.SetInt(offsetPos, offset); err != nil {
-		return 0, fmt.Errorf("failed to set offset: %w", err)
+		return 0, fmt.Errorf("set offset %d at offset %d: %w", offset, offsetPos, err)
 	}
 	if err := page.SetInt(valuePos, value); err != nil {
-		return 0, fmt.Errorf("failed to set value: %w", err)
+		return 0, fmt.Errorf("set int value %d at offset %d: %w", value, valuePos, err)
 	}
 	lsn, err := lm.Append(b)
 	if err != nil {
-		return 0, fmt.Errorf("failed to append log record: %w", err)
+		return 0, fmt.Errorf("append SETINT log record for transaction %d: %w", txNum, err)
 	}
 	return lsn, nil
 }
@@ -321,13 +321,13 @@ func (l *setStringLogRecord) txNumber() uint64 {
 
 func (l *setStringLogRecord) undo(ctx context.Context, tx *Transaction) error {
 	if err := tx.Pin(ctx, l.blockID); err != nil {
-		return fmt.Errorf("failed to pin block: %w", err)
+		return fmt.Errorf("pin block %s for undo: %w", l.blockID, err)
 	}
 	if err := tx.SetString(ctx, l.blockID, l.offset, l.value, false); err != nil {
-		return fmt.Errorf("failed to set string: %w", err)
+		return fmt.Errorf("set string value %q at offset %d in block %s for undo: %w", l.value, l.offset, l.blockID, err)
 	}
 	if err := tx.UnPin(l.blockID); err != nil {
-		return fmt.Errorf("failed to unpin block: %w", err)
+		return fmt.Errorf("unpin block %s after undo: %w", l.blockID, err)
 	}
 	return nil
 }
@@ -347,26 +347,26 @@ func WriteStringToLog(lm *dblog.LogManager, txNum uint64, blockID dbfile.BlockID
 	b := make([]byte, recordLen)
 	page := dbfile.NewPageFromBytes(b)
 	if err := page.SetInt(0, SETSTRING); err != nil {
-		return 0, fmt.Errorf("failed to set op: %w", err)
+		return 0, fmt.Errorf("set SETSTRING operation code at offset 0: %w", err)
 	}
 	if err := page.SetUint64(txPos, txNum); err != nil {
-		return 0, fmt.Errorf("failed to set txNum: %w", err)
+		return 0, fmt.Errorf("set transaction number %d at offset %d: %w", txNum, txPos, err)
 	}
 	if err := page.SetString(fileNamePos, blockID.FileName()); err != nil {
-		return 0, fmt.Errorf("failed to set blockID: %w", err)
+		return 0, fmt.Errorf("set block file name %q at offset %d: %w", blockID.FileName(), fileNamePos, err)
 	}
 	if err := page.SetInt(blockPos, blockID.BlockNum()); err != nil {
-		return 0, fmt.Errorf("failed to set blockNum: %w", err)
+		return 0, fmt.Errorf("set block number %d at offset %d: %w", blockID.BlockNum(), blockPos, err)
 	}
 	if err := page.SetInt(offsetPos, offset); err != nil {
-		return 0, fmt.Errorf("failed to set offset: %w", err)
+		return 0, fmt.Errorf("set offset %d at offset %d: %w", offset, offsetPos, err)
 	}
 	if err := page.SetString(valuePos, value); err != nil {
-		return 0, fmt.Errorf("failed to set value: %w", err)
+		return 0, fmt.Errorf("set string value %q at offset %d: %w", value, valuePos, err)
 	}
 	lsn, err := lm.Append(b)
 	if err != nil {
-		return 0, fmt.Errorf("failed to append log record: %w", err)
+		return 0, fmt.Errorf("append SETSTRING log record for transaction %d: %w", txNum, err)
 	}
 	return lsn, nil
 }

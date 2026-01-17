@@ -24,7 +24,7 @@ func NewConcurrencyManager() *ConcurrencyManager {
 func (c *ConcurrencyManager) SLock(ctx context.Context, blk dbfile.BlockID) error {
 	if _, ok := c.locks[blk]; !ok {
 		if err := lockTable.SLock(ctx, blk); err != nil {
-			return fmt.Errorf("failed to SLock: %w", err)
+			return fmt.Errorf("acquire shared lock on block %s: %w", blk, err)
 		}
 		c.locks[blk] = "S"
 	}
@@ -34,10 +34,10 @@ func (c *ConcurrencyManager) SLock(ctx context.Context, blk dbfile.BlockID) erro
 func (c *ConcurrencyManager) XLock(ctx context.Context, blk dbfile.BlockID) error {
 	if !c.hasXLock(blk) {
 		if err := c.SLock(ctx, blk); err != nil {
-			return fmt.Errorf("failed to SLock: %w", err)
+			return fmt.Errorf("acquire shared lock on block %s: %w", blk, err)
 		}
 		if err := lockTable.XLock(ctx, blk); err != nil {
-			return fmt.Errorf("failed to upgrade to XLock: %w", err)
+			return fmt.Errorf("upgrade to exclusive lock on block %s: %w", blk, err)
 		}
 		c.locks[blk] = "X"
 	}

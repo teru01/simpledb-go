@@ -31,17 +31,17 @@ func NewFileManager(dbDirectory *os.File, blockSize int) (*FileManager, error) {
 		var err error
 		dbDirectory, err = os.Open(defaultDirectory)
 		if err != nil {
-			return nil, fmt.Errorf("failed to open directory %s: %w", defaultDirectory, err)
+			return nil, fmt.Errorf("open database directory %s: %w", defaultDirectory, err)
 		}
 	} else {
 		files, err := dbDirectory.ReadDir(0)
 		if err != nil {
-			return nil, fmt.Errorf("failed to read directory %s: %w", dbDirectory.Name(), err)
+			return nil, fmt.Errorf("read directory %s: %w", dbDirectory.Name(), err)
 		}
 		for _, file := range files {
 			if strings.HasPrefix(file.Name(), "temp") {
 				if err := os.Remove(filepath.Join(dbDirectory.Name(), file.Name())); err != nil {
-					return nil, fmt.Errorf("failed to remove file %s: %w", file.Name(), err)
+					return nil, fmt.Errorf("remove temporary file %s: %w", file.Name(), err)
 				}
 			}
 		}
@@ -60,15 +60,15 @@ func (fm *FileManager) Read(blockID BlockID, p *Page) error {
 	defer fm.mu.Unlock()
 	file, err := fm.getFile(blockID.FileName())
 	if err != nil {
-		return fmt.Errorf("failed to get file %s: %w", blockID.FileName(), err)
+		return fmt.Errorf("get file handle for %q: %w", blockID.FileName(), err)
 	}
 	_, err = file.Seek(int64(blockID.BlockNum()*fm.blockSize), io.SeekStart)
 	if err != nil {
-		return fmt.Errorf("failed to seek file %s: %w", blockID.FileName(), err)
+		return fmt.Errorf("seek to block %d in file %q: %w", blockID.BlockNum(), blockID.FileName(), err)
 	}
 	_, err = file.Read(p.pageBuffer().buffer)
 	if err != nil {
-		return fmt.Errorf("failed to read file %s: %w", blockID.FileName(), err)
+		return fmt.Errorf("read block %d from file %q: %w", blockID.BlockNum(), blockID.FileName(), err)
 	}
 	return nil
 }
@@ -78,15 +78,15 @@ func (fm *FileManager) Write(blockID BlockID, p *Page) error {
 	defer fm.mu.Unlock()
 	file, err := fm.getFile(blockID.FileName())
 	if err != nil {
-		return fmt.Errorf("failed to get file %s: %w", blockID.FileName(), err)
+		return fmt.Errorf("get file handle for %q: %w", blockID.FileName(), err)
 	}
 	_, err = file.Seek(int64(blockID.BlockNum()*fm.blockSize), io.SeekStart)
 	if err != nil {
-		return fmt.Errorf("failed to seek file %s: %w", blockID.FileName(), err)
+		return fmt.Errorf("seek to block %d in file %q: %w", blockID.BlockNum(), blockID.FileName(), err)
 	}
 	_, err = file.Write(p.pageBuffer().buffer)
 	if err != nil {
-		return fmt.Errorf("failed to write file %s: %w", blockID.FileName(), err)
+		return fmt.Errorf("write block %d to file %q: %w", blockID.BlockNum(), blockID.FileName(), err)
 	}
 	return nil
 }
@@ -98,22 +98,22 @@ func (fm *FileManager) Append(fileName string) (BlockID, error) {
 
 	blockNum, err := fm.FileBlockLength(fileName)
 	if err != nil {
-		return BlockID{}, fmt.Errorf("failed to get file block length %s: %w", fileName, err)
+		return BlockID{}, fmt.Errorf("get file block length for %q: %w", fileName, err)
 	}
 	newBlockID := NewBlockID(fileName, blockNum)
 
 	b := make([]byte, fm.blockSize)
 	f, err := fm.getFile(fileName)
 	if err != nil {
-		return BlockID{}, fmt.Errorf("failed to get file %s: %w", fileName, err)
+		return BlockID{}, fmt.Errorf("get file handle for %q: %w", fileName, err)
 	}
 	_, err = f.Seek(int64(newBlockID.blockNum*fm.blockSize), io.SeekStart)
 	if err != nil {
-		return BlockID{}, fmt.Errorf("failed to seek file %s: %w", fileName, err)
+		return BlockID{}, fmt.Errorf("seek to block %d in file %q: %w", newBlockID.blockNum, fileName, err)
 	}
 	_, err = f.Write(b)
 	if err != nil {
-		return BlockID{}, fmt.Errorf("failed to write file %s: %w", fileName, err)
+		return BlockID{}, fmt.Errorf("write new block %d to file %q: %w", newBlockID.blockNum, fileName, err)
 	}
 	return newBlockID, nil
 }
@@ -122,11 +122,11 @@ func (fm *FileManager) Append(fileName string) (BlockID, error) {
 func (fm *FileManager) FileBlockLength(fileName string) (int, error) {
 	file, err := fm.getFile(fileName)
 	if err != nil {
-		return 0, fmt.Errorf("failed to get file %s: %w", fileName, err)
+		return 0, fmt.Errorf("get file handle for %q: %w", fileName, err)
 	}
 	info, err := file.Stat()
 	if err != nil {
-		return 0, fmt.Errorf("failed to get file info %s: %w", fileName, err)
+		return 0, fmt.Errorf("get file info for %q: %w", fileName, err)
 	}
 	return int(info.Size() / int64(fm.blockSize)), nil
 }

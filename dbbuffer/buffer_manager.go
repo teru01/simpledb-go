@@ -55,7 +55,7 @@ func (bm *BufferManager) FlushAll(txNum uint64) error {
 			continue
 		}
 		if err := bm.bufferPool[i].flush(); err != nil {
-			return fmt.Errorf("failed to flush [%v]: %w", i, err)
+			return fmt.Errorf("flush buffer %d for transaction %d: %w", i, txNum, err)
 		}
 	}
 	return nil
@@ -93,7 +93,7 @@ func (bm *BufferManager) Pin(ctx context.Context, blk dbfile.BlockID) (*Buffer, 
 		}()
 
 		if err != nil {
-			return nil, fmt.Errorf("failed to pin: %w", err)
+			return nil, fmt.Errorf("pin block %s: %w", blk, err)
 		}
 		if buf != nil {
 			return buf, nil
@@ -118,7 +118,7 @@ func (bm *BufferManager) tryToPinLocked(blk dbfile.BlockID) (*Buffer, error) {
 			return nil, nil
 		}
 		if err := buf.assignToBlock(blk); err != nil {
-			return nil, fmt.Errorf("failed to tryPin: %w", err)
+			return nil, fmt.Errorf("assign buffer to block %s: %w", blk, err)
 		}
 	}
 	if !buf.IsPinned() {

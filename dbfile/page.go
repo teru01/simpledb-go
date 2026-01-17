@@ -21,7 +21,7 @@ func (p *Page) GetInt(offset int) int {
 
 func (p *Page) SetInt(offset int, value int) error {
 	if offset < 0 || offset+intSize > p.buffer.Size() {
-		return fmt.Errorf("offset %d out of range [0, %d)", offset, p.buffer.Size()-intSize+1)
+		return fmt.Errorf("set int at offset %d: offset out of range [0, %d)", offset, p.buffer.Size()-intSize+1)
 	}
 	p.buffer.SetInt(offset, value)
 	return nil
@@ -35,7 +35,7 @@ func (p *Page) GetBytes(offset int) []byte {
 func (p *Page) SetBytes(offset int, bytes []byte) error {
 	requiredSize := offset + intSize + len(bytes)
 	if offset < 0 || requiredSize > p.buffer.Size() {
-		return fmt.Errorf("offset %d with %d bytes exceeds page size %d", offset, len(bytes), p.buffer.Size())
+		return fmt.Errorf("set %d bytes at offset %d: exceeds page size %d", len(bytes), offset, p.buffer.Size())
 	}
 	p.buffer.SetBytes(offset, bytes)
 	return nil
@@ -71,7 +71,7 @@ func (p *Page) GetUint64(offset int) uint64 {
 
 func (p *Page) SetUint64(offset int, value uint64) error {
 	if offset < 0 || offset+8 > p.buffer.Size() {
-		return fmt.Errorf("offset %d out of range [0, %d)", offset, p.buffer.Size()-8+1)
+		return fmt.Errorf("set uint64 at offset %d: offset out of range [0, %d)", offset, p.buffer.Size()-8+1)
 	}
 	p.buffer.SetUint64(offset, value)
 	return nil
