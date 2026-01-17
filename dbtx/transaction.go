@@ -153,7 +153,8 @@ func (t *Transaction) SetString(ctx context.Context, blk dbfile.BlockID, offset 
 	return nil
 }
 
-// ファントム対策
+// fileNameのファイルが含むブロック数
+// ファントム対策にEOFマーカーに対してSLockをとる
 func (t *Transaction) Size(ctx context.Context, fileName string) (int, error) {
 	blk := dbfile.NewBlockID(fileName, EndOfFile)
 	if err := t.concurrencyManager.SLock(ctx, blk); err != nil {
@@ -166,7 +167,8 @@ func (t *Transaction) Size(ctx context.Context, fileName string) (int, error) {
 	return length, nil
 }
 
-// ファントム対策
+// fileNameのファイルに1ブロック追加する
+// ファントム対策にEOFマーカーにXLockをとる
 func (t *Transaction) Append(ctx context.Context, fileName string) (dbfile.BlockID, error) {
 	blk := dbfile.NewBlockID(fileName, EndOfFile)
 	if err := t.concurrencyManager.XLock(ctx, blk); err != nil {
