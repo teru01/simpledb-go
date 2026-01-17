@@ -9,7 +9,7 @@ import (
 	"github.com/teru01/simpledb-go/dbfile"
 )
 
-const MAX_WAIT_TIME_SECOND = 10
+const MaxWaitTimeSecond = 10
 
 type LockTable struct {
 	mu               sync.Mutex
@@ -28,7 +28,7 @@ func NewLockTable() *LockTable {
 // shared lockを取る
 // xlockがすでにblockに対して取られている場合は待機
 func (l *LockTable) SLock(ctx context.Context, blk dbfile.BlockID) error {
-	ctx, cancel := context.WithTimeout(ctx, MAX_WAIT_TIME_SECOND*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, MaxWaitTimeSecond*time.Second)
 	defer cancel()
 
 	for {
@@ -64,7 +64,7 @@ func (l *LockTable) SLock(ctx context.Context, blk dbfile.BlockID) error {
 // x, slockがblkに対して取られている場合は待機
 // XLockを取る前にSLockが取られている必要がある
 func (l *LockTable) XLock(ctx context.Context, blk dbfile.BlockID) error {
-	ctx, cancel := context.WithTimeout(ctx, MAX_WAIT_TIME_SECOND*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, MaxWaitTimeSecond*time.Second)
 	defer cancel()
 
 	for {

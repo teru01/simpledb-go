@@ -12,7 +12,7 @@ import (
 	"github.com/teru01/simpledb-go/dblog"
 )
 
-const MAX_WAIT_TIME = 10000 * time.Millisecond
+const MaxWaitTime = 10000 * time.Millisecond
 
 type BufferManager struct {
 	mu                       sync.Mutex
@@ -78,7 +78,7 @@ func (bm *BufferManager) Unpin(buffer *Buffer) {
 func (bm *BufferManager) Pin(ctx context.Context, blk dbfile.BlockID) (*Buffer, error) {
 	// 最大max_timeまつ
 	// tryToPinが失敗したら1つunpinされるのを待つ
-	ctx, cancel := context.WithTimeout(ctx, MAX_WAIT_TIME)
+	ctx, cancel := context.WithTimeout(ctx, MaxWaitTime)
 	defer cancel()
 	for {
 		var waitCh chan struct{}

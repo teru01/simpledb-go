@@ -11,7 +11,7 @@ import (
 	"github.com/teru01/simpledb-go/dblog"
 )
 
-const END_OF_FILE = -1
+const EndOfFile = -1
 
 var nextTxNum atomic.Uint64
 
@@ -155,7 +155,7 @@ func (t *Transaction) SetString(ctx context.Context, blk dbfile.BlockID, offset 
 
 // ファントム対策
 func (t *Transaction) Size(ctx context.Context, fileName string) (int, error) {
-	blk := dbfile.NewBlockID(fileName, END_OF_FILE)
+	blk := dbfile.NewBlockID(fileName, EndOfFile)
 	if err := t.concurrencyManager.SLock(ctx, blk); err != nil {
 		return 0, fmt.Errorf("failed to SLock: %w", err)
 	}
@@ -168,7 +168,7 @@ func (t *Transaction) Size(ctx context.Context, fileName string) (int, error) {
 
 // ファントム対策
 func (t *Transaction) Append(ctx context.Context, fileName string) (dbfile.BlockID, error) {
-	blk := dbfile.NewBlockID(fileName, END_OF_FILE)
+	blk := dbfile.NewBlockID(fileName, EndOfFile)
 	if err := t.concurrencyManager.XLock(ctx, blk); err != nil {
 		return dbfile.BlockID{}, fmt.Errorf("failed to XLock: %w", err)
 	}
