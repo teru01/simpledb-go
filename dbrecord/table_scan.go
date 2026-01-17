@@ -37,12 +37,12 @@ func NewTableScan(ctx context.Context, tx *dbtx.Transaction, tableName string, l
 		return nil, fmt.Errorf("get table size for %q: %w", fileName, err)
 	}
 	if size == 0 {
-		state, err = t.moveToNewBlock(ctx)
+		state, err = t.stateForNewBlock(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("move to new block for table %q: %w", t.fileName, err)
 		}
 	} else {
-		state, err = t.moveToBlock(0)
+		state, err = t.stateForBlock(0)
 		if err != nil {
 			return nil, fmt.Errorf("move to block 0 for table %q: %w", t.fileName, err)
 		}
@@ -61,7 +61,7 @@ func (t *TableScan) close() error {
 }
 
 func (t *TableScan) SetStateToBeforeFirst() error {
-	state, err := t.moveToBlock(0)
+	state, err := t.stateForBlock(0)
 	if err != nil {
 		return fmt.Errorf("move to block 0 for table %q: %w", t.fileName, err)
 	}
@@ -114,6 +114,21 @@ func (t *TableScan) SetInt(ctx context.Context, fieldName string, value int) err
 	return nil
 }
 
+// `rID`に移動する
+func (t *TableScan) MoveToRID(rID RID) error {
+	if err := t.close(); err != nil {
+		return fmt.Errorf("close current block before moving to RID %v: %w", rID, err)
+	}
+	rp := NewRecordPage(t.tx, dbfile.NewBlockID(t.fileName, rID.BlockNum()), t.layout)
+	t.state.currentSlot = rID.Slot()
+	t.state.recordPage = rp
+	return nil
+}
+
+func (t *TableScan) RID() RID {
+	return *NewRID(t.state.recordPage.Block().BlockNum(), t.state.currentSlot)
+}
+
 func (t *TableScan) SetString(ctx context.Context, fieldName string, value string) error {
 	if err := t.state.recordPage.SetString(ctx, t.state.currentSlot, fieldName, value); err != nil {
 		return fmt.Errorf("set string value %q to field %q at slot %d: %w", value, fieldName, t.state.currentSlot, err)
@@ -139,6 +154,7 @@ func (t *TableScan) SetValue(ctx context.Context, fieldName string, value dbcons
 	return fmt.Errorf("unknown field type %d for field %q", t.layout.Schema().FieldType(fieldName), fieldName)
 }
 
+// block中の利用可能slotまで移動する
 func (t *TableScan) moveToNextAvailableSlotInBlock(ctx context.Context) error {
 	slot, err := t.state.recordPage.InsertNextAvabilableSlotAfter(ctx, t.state.currentSlot)
 	if err != nil {
@@ -159,13 +175,13 @@ func (t *TableScan) Insert(ctx context.Context) error {
 			return fmt.Errorf("check if at last block for table %q: %w", t.fileName, err)
 		}
 		if isLast {
-			state, err := t.moveToNewBlock(ctx)
+			state, err := t.stateForNewBlock(ctx)
 			if err != nil {
 				return fmt.Errorf("move to new block for table %q: %w", t.fileName, err)
 			}
 			t.state = state
 		} else {
-			state, err := t.moveToBlock(t.state.recordPage.blk.BlockNum() + 1)
+			state, err := t.stateForBlock(t.state.recordPage.blk.BlockNum() + 1)
 			if err != nil {
 				return fmt.Errorf("move to block %d for table %q: %w", t.state.recordPage.blk.BlockNum()+1, t.fileName, err)
 			}
@@ -178,6 +194,7 @@ func (t *TableScan) Insert(ctx context.Context) error {
 	return nil
 }
 
+// 現在のslotを削除
 func (t *TableScan) Delete(ctx context.Context) error {
 	if err := t.state.recordPage.Delete(ctx, t.state.currentSlot); err != nil {
 		return err
@@ -200,7 +217,7 @@ func (t *TableScan) Next(ctx context.Context) (bool, error) {
 		if isLast {
 			return false, nil
 		}
-		state, err := t.moveToBlock(t.state.recordPage.Block().BlockNum() + 1)
+		state, err := t.stateForBlock(t.state.recordPage.Block().BlockNum() + 1)
 		if err != nil {
 			return false, fmt.Errorf("move to block %d for table %q: %w", t.state.recordPage.Block().BlockNum()+1, t.fileName, err)
 		}
@@ -215,7 +232,7 @@ func (t *TableScan) Next(ctx context.Context) (bool, error) {
 }
 
 // blkNumに移動し、新たなstateを返す
-func (t *TableScan) moveToBlock(blkNum int) (*TableScanState, error) {
+func (t *TableScan) stateForBlock(blkNum int) (*TableScanState, error) {
 	if err := t.close(); err != nil {
 		return nil, fmt.Errorf("close current block before moving to block %d: %w", blkNum, err)
 	}
@@ -227,7 +244,7 @@ func (t *TableScan) moveToBlock(blkNum int) (*TableScanState, error) {
 }
 
 // blockを追加し、新たなstateを返す
-func (t *TableScan) moveToNewBlock(ctx context.Context) (*TableScanState, error) {
+func (t *TableScan) stateForNewBlock(ctx context.Context) (*TableScanState, error) {
 	if err := t.close(); err != nil {
 		return nil, fmt.Errorf("close current block before appending new block: %w", err)
 	}
@@ -245,6 +262,7 @@ func (t *TableScan) moveToNewBlock(ctx context.Context) (*TableScanState, error)
 	}, nil
 }
 
+// ファイル最後のブロックに存在していればtrue
 func (t *TableScan) atLastBlock(ctx context.Context) (bool, error) {
 	size, err := t.tx.Size(ctx, t.fileName)
 	if err != nil {
