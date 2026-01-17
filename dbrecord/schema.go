@@ -18,6 +18,13 @@ type Schema struct {
 	info   map[string]FieldInfo
 }
 
+func NewSchema() *Schema {
+	return &Schema{
+		fields: []string{},
+		info:   make(map[string]FieldInfo),
+	}
+}
+
 func (s *Schema) AddField(fieldName string, fieldType, length int) {
 	s.fields = append(s.fields, fieldName)
 	s.info[fieldName] = FieldInfo{fieldType: fieldType, length: length}

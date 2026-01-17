@@ -7,7 +7,7 @@ import (
 )
 
 func TestAddIntField(t *testing.T) {
-	schema := &dbrecord.Schema{}
+	schema := dbrecord.NewSchema()
 	schema.AddIntField("id")
 
 	if !schema.HasField("id") {
@@ -22,7 +22,7 @@ func TestAddIntField(t *testing.T) {
 }
 
 func TestAddStringField(t *testing.T) {
-	schema := &dbrecord.Schema{}
+	schema := dbrecord.NewSchema()
 	schema.AddStringField("name", 20)
 
 	if !schema.HasField("name") {
@@ -37,7 +37,7 @@ func TestAddStringField(t *testing.T) {
 }
 
 func TestAddField(t *testing.T) {
-	schema := &dbrecord.Schema{}
+	schema := dbrecord.NewSchema()
 	schema.AddField("age", dbrecord.FieldTypeInt, 0)
 	schema.AddField("address", dbrecord.FieldTypeString, 50)
 
@@ -59,7 +59,7 @@ func TestAddField(t *testing.T) {
 }
 
 func TestFields(t *testing.T) {
-	schema := &dbrecord.Schema{}
+	schema := dbrecord.NewSchema()
 	schema.AddIntField("id")
 	schema.AddStringField("name", 30)
 	schema.AddIntField("age")
@@ -78,7 +78,7 @@ func TestFields(t *testing.T) {
 }
 
 func TestHasField(t *testing.T) {
-	schema := &dbrecord.Schema{}
+	schema := dbrecord.NewSchema()
 	schema.AddIntField("id")
 	schema.AddStringField("name", 20)
 
@@ -94,11 +94,11 @@ func TestHasField(t *testing.T) {
 }
 
 func TestAdd(t *testing.T) {
-	schema1 := &dbrecord.Schema{}
+	schema1 := dbrecord.NewSchema()
 	schema1.AddIntField("id")
 	schema1.AddStringField("name", 20)
 
-	schema2 := &dbrecord.Schema{}
+	schema2 := dbrecord.NewSchema()
 	schema2.Add("id", *schema1)
 
 	if !schema2.HasField("id") {
@@ -110,12 +110,12 @@ func TestAdd(t *testing.T) {
 }
 
 func TestAddAll(t *testing.T) {
-	schema1 := &dbrecord.Schema{}
+	schema1 := dbrecord.NewSchema()
 	schema1.AddIntField("id")
 	schema1.AddStringField("name", 20)
 	schema1.AddIntField("age")
 
-	schema2 := &dbrecord.Schema{}
+	schema2 := dbrecord.NewSchema()
 	schema2.AddAll(*schema1)
 
 	if !schema2.HasField("id") {
@@ -140,7 +140,7 @@ func TestAddAll(t *testing.T) {
 }
 
 func TestMultipleFields(t *testing.T) {
-	schema := &dbrecord.Schema{}
+	schema := dbrecord.NewSchema()
 	schema.AddIntField("id")
 	schema.AddStringField("name", 30)
 	schema.AddIntField("age")
