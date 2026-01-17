@@ -7,12 +7,12 @@ import (
 
 // schemaのフィールドの配置情報
 type Layout struct {
-	schema   Schema
+	schema   *Schema
 	offsets  map[string]int
 	slotSize int
 }
 
-func NewLayout(schema Schema) *Layout {
+func NewLayout(schema *Schema) *Layout {
 	layout := Layout{schema: schema}
 	pos := size.IntSize
 	offsets := make(map[string]int)
@@ -24,7 +24,7 @@ func NewLayout(schema Schema) *Layout {
 	return &layout
 }
 
-func NewLayoutFromOffsets(schema Schema, offsets map[string]int, slotSize int) *Layout {
+func NewLayoutFromOffsets(schema *Schema, offsets map[string]int, slotSize int) *Layout {
 	return &Layout{
 		schema:   schema,
 		offsets:  offsets,
@@ -32,7 +32,7 @@ func NewLayoutFromOffsets(schema Schema, offsets map[string]int, slotSize int) *
 	}
 }
 
-func (l *Layout) Schema() Schema {
+func (l *Layout) Schema() *Schema {
 	return l.schema
 }
 
