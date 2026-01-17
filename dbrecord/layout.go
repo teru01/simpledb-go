@@ -20,6 +20,7 @@ func NewLayout(schema *Schema) *Layout {
 		offsets[field] = pos
 		pos += layout.LengthInBytes(field)
 	}
+	layout.offsets = offsets
 	layout.slotSize = pos
 	return &layout
 }

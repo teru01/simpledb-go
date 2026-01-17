@@ -79,7 +79,8 @@ func (r *RecordPage) SetFlag(ctx context.Context, slot int, status SlotStatus) e
 	return nil
 }
 
-func (r *RecordPage) NextAfter(ctx context.Context, slot int) (int, error) {
+// slotより後の使用中Slot numberを返す
+func (r *RecordPage) NextInUseSlotAfter(ctx context.Context, slot int) (int, error) {
 	slot, err := r.searchAfter(ctx, slot, SlotUsed)
 	if err != nil {
 		return 0, fmt.Errorf("NextAfter failed: %w", err)
@@ -87,7 +88,8 @@ func (r *RecordPage) NextAfter(ctx context.Context, slot int) (int, error) {
 	return slot, nil
 }
 
-func (r *RecordPage) InsertAfter(ctx context.Context, slot int) (int, error) {
+// slotより後の空きslot numberを返し、使用中のマークする
+func (r *RecordPage) InsertNextAvabilableSlotAfter(ctx context.Context, slot int) (int, error) {
 	slot, err := r.searchAfter(ctx, slot, SlotEmpty)
 	if err != nil {
 		return 0, fmt.Errorf("InsertAfter failed: %w", err)
