@@ -22,12 +22,15 @@ type RecordPage struct {
 	layout *Layout
 }
 
-func NewRecordPage(tx *dbtx.Transaction, blk dbfile.BlockID, layout *Layout) *RecordPage {
+func NewRecordPage(ctx context.Context, tx *dbtx.Transaction, blk dbfile.BlockID, layout *Layout) (*RecordPage, error) {
+	if err := tx.Pin(ctx, blk); err != nil {
+		return nil, fmt.Errorf("pin block %s: %w", blk, err)
+	}
 	return &RecordPage{
 		tx:     tx,
 		blk:    blk,
 		layout: layout,
-	}
+	}, nil
 }
 
 func (r *RecordPage) GetInt(ctx context.Context, slot int, fieldName string) (int, error) {

@@ -42,7 +42,7 @@ func NewTableScan(ctx context.Context, tx *dbtx.Transaction, tableName string, l
 			return nil, fmt.Errorf("move to new block for table %q: %w", t.fileName, err)
 		}
 	} else {
-		state, err = t.stateForBlock(0)
+		state, err = t.stateForBlock(ctx, 0)
 		if err != nil {
 			return nil, fmt.Errorf("move to block 0 for table %q: %w", t.fileName, err)
 		}
@@ -52,7 +52,7 @@ func NewTableScan(ctx context.Context, tx *dbtx.Transaction, tableName string, l
 }
 
 func (t *TableScan) close() error {
-	if t.state.recordPage != nil {
+	if t.state != nil && t.state.recordPage != nil {
 		if err := t.tx.UnPin(t.state.recordPage.Block()); err != nil {
 			return fmt.Errorf("unpin block %s: %w", t.state.recordPage.Block(), err)
 		}
@@ -60,8 +60,8 @@ func (t *TableScan) close() error {
 	return nil
 }
 
-func (t *TableScan) SetStateToBeforeFirst() error {
-	state, err := t.stateForBlock(0)
+func (t *TableScan) SetStateToBeforeFirst(ctx context.Context) error {
+	state, err := t.stateForBlock(ctx, 0)
 	if err != nil {
 		return fmt.Errorf("move to block 0 for table %q: %w", t.fileName, err)
 	}
@@ -115,11 +115,15 @@ func (t *TableScan) SetInt(ctx context.Context, fieldName string, value int) err
 }
 
 // `rID`に移動する
-func (t *TableScan) MoveToRID(rID RID) error {
+func (t *TableScan) MoveToRID(ctx context.Context, rID RID) error {
 	if err := t.close(); err != nil {
 		return fmt.Errorf("close current block before moving to RID %v: %w", rID, err)
 	}
-	rp := NewRecordPage(t.tx, dbfile.NewBlockID(t.fileName, rID.BlockNum()), t.layout)
+	blk := dbfile.NewBlockID(t.fileName, rID.BlockNum())
+	rp, err := NewRecordPage(ctx, t.tx, blk, t.layout)
+	if err != nil {
+		return fmt.Errorf("create record page for block %s: %w", blk, err)
+	}
 	t.state.currentSlot = rID.Slot()
 	t.state.recordPage = rp
 	return nil
@@ -181,7 +185,7 @@ func (t *TableScan) Insert(ctx context.Context) error {
 			}
 			t.state = state
 		} else {
-			state, err := t.stateForBlock(t.state.recordPage.blk.BlockNum() + 1)
+			state, err := t.stateForBlock(ctx, t.state.recordPage.blk.BlockNum()+1)
 			if err != nil {
 				return fmt.Errorf("move to block %d for table %q: %w", t.state.recordPage.blk.BlockNum()+1, t.fileName, err)
 			}
@@ -217,7 +221,7 @@ func (t *TableScan) Next(ctx context.Context) (bool, error) {
 		if isLast {
 			return false, nil
 		}
-		state, err := t.stateForBlock(t.state.recordPage.Block().BlockNum() + 1)
+		state, err := t.stateForBlock(ctx, t.state.recordPage.Block().BlockNum()+1)
 		if err != nil {
 			return false, fmt.Errorf("move to block %d for table %q: %w", t.state.recordPage.Block().BlockNum()+1, t.fileName, err)
 		}
@@ -226,17 +230,21 @@ func (t *TableScan) Next(ctx context.Context) (bool, error) {
 		if err != nil {
 			return false, fmt.Errorf("get next in-use slot after slot %d in block %s: %w", t.state.currentSlot, t.state.recordPage.Block(), err)
 		}
-		t.state.currentSlot = slot
 	}
+	t.state.currentSlot = slot
 	return true, nil
 }
 
 // blkNumに移動し、新たなstateを返す
-func (t *TableScan) stateForBlock(blkNum int) (*TableScanState, error) {
+func (t *TableScan) stateForBlock(ctx context.Context, blkNum int) (*TableScanState, error) {
 	if err := t.close(); err != nil {
 		return nil, fmt.Errorf("close current block before moving to block %d: %w", blkNum, err)
 	}
-	rp := NewRecordPage(t.tx, dbfile.NewBlockID(t.fileName, blkNum), t.layout)
+	blk := dbfile.NewBlockID(t.fileName, blkNum)
+	rp, err := NewRecordPage(ctx, t.tx, blk, t.layout)
+	if err != nil {
+		return nil, fmt.Errorf("create record page for block %s: %w", blk, err)
+	}
 	return &TableScanState{
 		recordPage:  rp,
 		currentSlot: -1,
@@ -252,7 +260,10 @@ func (t *TableScan) stateForNewBlock(ctx context.Context) (*TableScanState, erro
 	if err != nil {
 		return nil, fmt.Errorf("append new block to table %q: %w", t.fileName, err)
 	}
-	rp := NewRecordPage(t.tx, blk, t.layout)
+	rp, err := NewRecordPage(ctx, t.tx, blk, t.layout)
+	if err != nil {
+		return nil, fmt.Errorf("create record page for block %s: %w", blk, err)
+	}
 	if err := rp.Format(ctx); err != nil {
 		return nil, fmt.Errorf("format new block %s: %w", blk, err)
 	}

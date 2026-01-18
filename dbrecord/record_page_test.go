@@ -66,11 +66,11 @@ func TestRecordPageFormat(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	if err := tx.Pin(ctx, blk); err != nil {
-		t.Fatalf("failed to pin block: %v", err)
-	}
 
-	rp := dbrecord.NewRecordPage(tx, blk, layout)
+	rp, err := dbrecord.NewRecordPage(ctx, tx, blk, layout)
+	if err != nil {
+		t.Fatalf("failed to create record page: %v", err)
+	}
 	if err := rp.Format(ctx); err != nil {
 		t.Fatalf("failed to format: %v", err)
 	}
@@ -92,11 +92,11 @@ func TestRecordPageInsertAfter(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	if err := tx.Pin(ctx, blk); err != nil {
-		t.Fatalf("failed to pin block: %v", err)
-	}
 
-	rp := dbrecord.NewRecordPage(tx, blk, layout)
+	rp, err := dbrecord.NewRecordPage(ctx, tx, blk, layout)
+	if err != nil {
+		t.Fatalf("failed to create record page: %v", err)
+	}
 	if err := rp.Format(ctx); err != nil {
 		t.Fatalf("failed to format: %v", err)
 	}
@@ -125,11 +125,11 @@ func TestRecordPageSetGetInt(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	if err := tx.Pin(ctx, blk); err != nil {
-		t.Fatalf("failed to pin block: %v", err)
-	}
 
-	rp := dbrecord.NewRecordPage(tx, blk, layout)
+	rp, err := dbrecord.NewRecordPage(ctx, tx, blk, layout)
+	if err != nil {
+		t.Fatalf("failed to create record page: %v", err)
+	}
 	if err := rp.Format(ctx); err != nil {
 		t.Fatalf("failed to format: %v", err)
 	}
@@ -159,11 +159,11 @@ func TestRecordPageSetGetString(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	if err := tx.Pin(ctx, blk); err != nil {
-		t.Fatalf("failed to pin block: %v", err)
-	}
 
-	rp := dbrecord.NewRecordPage(tx, blk, layout)
+	rp, err := dbrecord.NewRecordPage(ctx, tx, blk, layout)
+	if err != nil {
+		t.Fatalf("failed to create record page: %v", err)
+	}
 	if err := rp.Format(ctx); err != nil {
 		t.Fatalf("failed to format: %v", err)
 	}
@@ -193,11 +193,11 @@ func TestRecordPageDelete(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	if err := tx.Pin(ctx, blk); err != nil {
-		t.Fatalf("failed to pin block: %v", err)
-	}
 
-	rp := dbrecord.NewRecordPage(tx, blk, layout)
+	rp, err := dbrecord.NewRecordPage(ctx, tx, blk, layout)
+	if err != nil {
+		t.Fatalf("failed to create record page: %v", err)
+	}
 	if err := rp.Format(ctx); err != nil {
 		t.Fatalf("failed to format: %v", err)
 	}
@@ -232,11 +232,11 @@ func TestRecordPageNextAfter(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	if err := tx.Pin(ctx, blk); err != nil {
-		t.Fatalf("failed to pin block: %v", err)
-	}
 
-	rp := dbrecord.NewRecordPage(tx, blk, layout)
+	rp, err := dbrecord.NewRecordPage(ctx, tx, blk, layout)
+	if err != nil {
+		t.Fatalf("failed to create record page: %v", err)
+	}
 	if err := rp.Format(ctx); err != nil {
 		t.Fatalf("failed to format: %v", err)
 	}
@@ -284,11 +284,11 @@ func TestRecordPageMultipleFields(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	if err := tx.Pin(ctx, blk); err != nil {
-		t.Fatalf("failed to pin block: %v", err)
-	}
 
-	rp := dbrecord.NewRecordPage(tx, blk, layout)
+	rp, err := dbrecord.NewRecordPage(ctx, tx, blk, layout)
+	if err != nil {
+		t.Fatalf("failed to create record page: %v", err)
+	}
 	if err := rp.Format(ctx); err != nil {
 		t.Fatalf("failed to format: %v", err)
 	}
@@ -339,7 +339,11 @@ func TestRecordPageBlock(t *testing.T) {
 	tx, _, layout, blk, cleanup := setupTestRecordPage(t)
 	defer cleanup()
 
-	rp := dbrecord.NewRecordPage(tx, blk, layout)
+	ctx := context.Background()
+	rp, err := dbrecord.NewRecordPage(ctx, tx, blk, layout)
+	if err != nil {
+		t.Fatalf("failed to create record page: %v", err)
+	}
 
 	if !rp.Block().Equals(blk) {
 		t.Errorf("expected block %v, got %v", blk, rp.Block())
