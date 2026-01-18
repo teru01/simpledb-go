@@ -13,6 +13,10 @@ import (
 )
 
 func setupTestTableScan(t *testing.T) (*dbtx.Transaction, *dbrecord.Layout, string, func()) {
+	return setupTestTableScanWithBlockSize(t, 400)
+}
+
+func setupTestTableScanWithBlockSize(t *testing.T, blockSize int) (*dbtx.Transaction, *dbrecord.Layout, string, func()) {
 	t.Helper()
 	dir, err := os.MkdirTemp("", "tablescan_test")
 	if err != nil {
@@ -23,7 +27,7 @@ func setupTestTableScan(t *testing.T) (*dbtx.Transaction, *dbrecord.Layout, stri
 		t.Fatalf("failed to open temp dir: %v", err)
 	}
 
-	fm, err := dbfile.NewFileManager(dirFile, 400)
+	fm, err := dbfile.NewFileManager(dirFile, blockSize)
 	if err != nil {
 		t.Fatalf("failed to create file manager: %v", err)
 	}
@@ -419,5 +423,230 @@ func TestTableScanMultipleRecords(t *testing.T) {
 
 	if count != len(testData) {
 		t.Errorf("expected %d records, got %d", len(testData), count)
+	}
+}
+
+func TestTableScanMultipleBlocks(t *testing.T) {
+	// Use small block size to force multiple blocks
+	// Slot size is 112 bytes, so block size 240 allows 2 records per block
+	tx, layout, tableName, cleanup := setupTestTableScanWithBlockSize(t, 240)
+	defer cleanup()
+
+	ctx := context.Background()
+	ts, err := dbrecord.NewTableScan(ctx, tx, tableName, layout)
+	if err != nil {
+		t.Fatalf("failed to create table scan: %v", err)
+	}
+
+	// Insert enough records to span multiple blocks
+	numRecords := 10
+	for i := 1; i <= numRecords; i++ {
+		if err := ts.Insert(ctx); err != nil {
+			t.Fatalf("failed to insert record %d: %v", i, err)
+		}
+		if err := ts.SetInt(ctx, "id", i); err != nil {
+			t.Fatalf("failed to set id for record %d: %v", i, err)
+		}
+	}
+
+	// Verify all records across multiple blocks
+	if err := ts.SetStateToBeforeFirst(ctx); err != nil {
+		t.Fatalf("failed to reset: %v", err)
+	}
+
+	count := 0
+	for {
+		ok, err := ts.Next(ctx)
+		if err != nil {
+			t.Fatalf("failed to move to next: %v", err)
+		}
+		if !ok {
+			break
+		}
+
+		id, err := ts.GetInt(ctx, "id")
+		if err != nil {
+			t.Fatalf("failed to get id: %v", err)
+		}
+
+		expectedID := count + 1
+		if id != expectedID {
+			t.Errorf("record %d: expected id=%d, got %d", count, expectedID, id)
+		}
+		count++
+	}
+
+	if count != numRecords {
+		t.Errorf("expected %d records, got %d", numRecords, count)
+	}
+}
+
+func TestTableScanDeleteAcrossBlocks(t *testing.T) {
+	// Use small block size to force multiple blocks
+	// Slot size is 112 bytes, so block size 240 allows 2 records per block
+	tx, layout, tableName, cleanup := setupTestTableScanWithBlockSize(t, 240)
+	defer cleanup()
+
+	ctx := context.Background()
+	ts, err := dbrecord.NewTableScan(ctx, tx, tableName, layout)
+	if err != nil {
+		t.Fatalf("failed to create table scan: %v", err)
+	}
+
+	// Insert records across multiple blocks
+	numRecords := 10
+	for i := 1; i <= numRecords; i++ {
+		if err := ts.Insert(ctx); err != nil {
+			t.Fatalf("failed to insert record %d: %v", i, err)
+		}
+		if err := ts.SetInt(ctx, "id", i*10); err != nil {
+			t.Fatalf("failed to set id for record %d: %v", i, err)
+		}
+	}
+
+	// Delete every other record
+	if err := ts.SetStateToBeforeFirst(ctx); err != nil {
+		t.Fatalf("failed to reset: %v", err)
+	}
+
+	deleteCount := 0
+	for {
+		ok, err := ts.Next(ctx)
+		if err != nil {
+			t.Fatalf("failed to move to next: %v", err)
+		}
+		if !ok {
+			break
+		}
+
+		id, err := ts.GetInt(ctx, "id")
+		if err != nil {
+			t.Fatalf("failed to get id: %v", err)
+		}
+
+		// Delete records with even id/10 values (20, 40, 60, 80, 100)
+		if (id/10)%2 == 0 {
+			if err := ts.Delete(ctx); err != nil {
+				t.Fatalf("failed to delete record with id=%d: %v", id, err)
+			}
+			deleteCount++
+		}
+	}
+
+	// Verify remaining records
+	if err := ts.SetStateToBeforeFirst(ctx); err != nil {
+		t.Fatalf("failed to reset: %v", err)
+	}
+
+	expectedIDs := []int{10, 30, 50, 70, 90}
+	count := 0
+	for {
+		ok, err := ts.Next(ctx)
+		if err != nil {
+			t.Fatalf("failed to move to next: %v", err)
+		}
+		if !ok {
+			break
+		}
+
+		id, err := ts.GetInt(ctx, "id")
+		if err != nil {
+			t.Fatalf("failed to get id: %v", err)
+		}
+
+		if count >= len(expectedIDs) || id != expectedIDs[count] {
+			t.Errorf("unexpected record at position %d: got id=%d, expected %d", count, id, expectedIDs[count])
+		}
+		count++
+	}
+
+	if count != len(expectedIDs) {
+		t.Errorf("expected %d remaining records, got %d", len(expectedIDs), count)
+	}
+
+	if deleteCount != 5 {
+		t.Errorf("expected to delete 5 records, deleted %d", deleteCount)
+	}
+}
+
+func TestTableScanInsertAfterDeleteAcrossBlocks(t *testing.T) {
+	// Use small block size to force multiple blocks
+	// Slot size is 112 bytes, so block size 240 allows 2 records per block
+	tx, layout, tableName, cleanup := setupTestTableScanWithBlockSize(t, 240)
+	defer cleanup()
+
+	ctx := context.Background()
+	ts, err := dbrecord.NewTableScan(ctx, tx, tableName, layout)
+	if err != nil {
+		t.Fatalf("failed to create table scan: %v", err)
+	}
+
+	// Insert initial records
+	for i := 1; i <= 10; i++ {
+		if err := ts.Insert(ctx); err != nil {
+			t.Fatalf("failed to insert record %d: %v", i, err)
+		}
+		if err := ts.SetInt(ctx, "id", i); err != nil {
+			t.Fatalf("failed to set id for record %d: %v", i, err)
+		}
+	}
+
+	// Delete some records to create gaps
+	if err := ts.SetStateToBeforeFirst(ctx); err != nil {
+		t.Fatalf("failed to reset: %v", err)
+	}
+
+	for {
+		ok, err := ts.Next(ctx)
+		if err != nil {
+			t.Fatalf("failed to move to next: %v", err)
+		}
+		if !ok {
+			break
+		}
+
+		id, err := ts.GetInt(ctx, "id")
+		if err != nil {
+			t.Fatalf("failed to get id: %v", err)
+		}
+
+		// Delete records with id 3, 5, 7
+		if id == 3 || id == 5 || id == 7 {
+			if err := ts.Delete(ctx); err != nil {
+				t.Fatalf("failed to delete record with id=%d: %v", id, err)
+			}
+		}
+	}
+
+	// Insert new records - should reuse deleted slots
+	for i := 100; i <= 102; i++ {
+		if err := ts.Insert(ctx); err != nil {
+			t.Fatalf("failed to insert new record %d: %v", i, err)
+		}
+		if err := ts.SetInt(ctx, "id", i); err != nil {
+			t.Fatalf("failed to set id for new record %d: %v", i, err)
+		}
+	}
+
+	// Count total records
+	if err := ts.SetStateToBeforeFirst(ctx); err != nil {
+		t.Fatalf("failed to reset: %v", err)
+	}
+
+	count := 0
+	for {
+		ok, err := ts.Next(ctx)
+		if err != nil {
+			t.Fatalf("failed to move to next: %v", err)
+		}
+		if !ok {
+			break
+		}
+		count++
+	}
+
+	expectedCount := 10 // 10 original - 3 deleted + 3 inserted
+	if count != expectedCount {
+		t.Errorf("expected %d total records, got %d", expectedCount, count)
 	}
 }

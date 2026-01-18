@@ -51,7 +51,7 @@ func NewTableScan(ctx context.Context, tx *dbtx.Transaction, tableName string, l
 	return t, nil
 }
 
-func (t *TableScan) close() error {
+func (t *TableScan) Close() error {
 	if t.state != nil && t.state.recordPage != nil {
 		if err := t.tx.UnPin(t.state.recordPage.Block()); err != nil {
 			return fmt.Errorf("unpin block %s: %w", t.state.recordPage.Block(), err)
@@ -116,7 +116,7 @@ func (t *TableScan) SetInt(ctx context.Context, fieldName string, value int) err
 
 // `rID`に移動する
 func (t *TableScan) MoveToRID(ctx context.Context, rID RID) error {
-	if err := t.close(); err != nil {
+	if err := t.Close(); err != nil {
 		return fmt.Errorf("close current block before moving to RID %v: %w", rID, err)
 	}
 	blk := dbfile.NewBlockID(t.fileName, rID.BlockNum())
@@ -206,7 +206,7 @@ func (t *TableScan) Delete(ctx context.Context) error {
 	return nil
 }
 
-// 次の使用中スロットを最後のブロックまで探す
+// 次の使用中スロットを最後のブロックまで探してstateにセットする
 func (t *TableScan) Next(ctx context.Context) (bool, error) {
 	slot, err := t.state.recordPage.NextInUseSlotAfter(ctx, t.state.currentSlot)
 	if err != nil {
@@ -237,7 +237,7 @@ func (t *TableScan) Next(ctx context.Context) (bool, error) {
 
 // blkNumに移動し、新たなstateを返す
 func (t *TableScan) stateForBlock(ctx context.Context, blkNum int) (*TableScanState, error) {
-	if err := t.close(); err != nil {
+	if err := t.Close(); err != nil {
 		return nil, fmt.Errorf("close current block before moving to block %d: %w", blkNum, err)
 	}
 	blk := dbfile.NewBlockID(t.fileName, blkNum)
@@ -253,7 +253,7 @@ func (t *TableScan) stateForBlock(ctx context.Context, blkNum int) (*TableScanSt
 
 // blockを追加し、新たなstateを返す
 func (t *TableScan) stateForNewBlock(ctx context.Context) (*TableScanState, error) {
-	if err := t.close(); err != nil {
+	if err := t.Close(); err != nil {
 		return nil, fmt.Errorf("close current block before appending new block: %w", err)
 	}
 	blk, err := t.tx.Append(ctx, t.fileName)
