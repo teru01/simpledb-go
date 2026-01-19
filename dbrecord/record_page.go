@@ -97,6 +97,10 @@ func (r *RecordPage) InsertNextAvabilableSlotAfter(ctx context.Context, slot int
 	if err != nil {
 		return 0, fmt.Errorf("search next available slot after slot %d in block %s: %w", slot, r.blk, err)
 	}
+	if slot < 0 {
+		// No available slot found
+		return slot, nil
+	}
 	if err := r.SetFlag(ctx, slot, SlotUsed); err != nil {
 		return 0, fmt.Errorf("set used flag for slot %d in block %s: %w", slot, r.blk, err)
 	}
@@ -123,6 +127,7 @@ func (r *RecordPage) SlotLengthInBlock() int {
 	return r.tx.BlockSize() / r.layout.slotSize
 }
 
+// ブロック内でslotを確保して中身をクリアする
 func (r *RecordPage) Format(ctx context.Context) error {
 	for i := 0; i < r.SlotLengthInBlock(); i++ {
 		if err := r.tx.SetInt(ctx, r.blk, r.slotOffset(i), int(SlotEmpty), false); err != nil {
