@@ -6,7 +6,7 @@ import (
 
 	"github.com/teru01/simpledb-go/dbfile"
 	"github.com/teru01/simpledb-go/dblog"
-	"github.com/teru01/simpledb-go/size"
+	"github.com/teru01/simpledb-go/dbsize"
 )
 
 const (
@@ -66,7 +66,7 @@ func (l *checkpointLogRecord) String() string {
 }
 
 func WriteCheckpointToLog(lm *dblog.LogManager) (int, error) {
-	b := make([]byte, size.IntSize)
+	b := make([]byte, dbsize.IntSize)
 	page := dbfile.NewPageFromBytes(b)
 	if err := page.SetInt(0, CHECKPOINT); err != nil {
 		return 0, fmt.Errorf("set checkpoint operation code at offset 0: %w", err)
@@ -83,7 +83,7 @@ type startLogRecord struct {
 }
 
 func NewStartLogRecord(page *dbfile.Page) LogRecord {
-	txPos := size.IntSize
+	txPos := dbsize.IntSize
 	txNum := page.GetUint64(txPos)
 	return &startLogRecord{txNum: txNum}
 }
@@ -105,8 +105,8 @@ func (l *startLogRecord) undo(ctx context.Context, tx *Transaction) error {
 }
 
 func WriteStartToLog(lm *dblog.LogManager, txNum uint64) (int, error) {
-	b := make([]byte, size.IntSize+size.Uint64Size)
-	txPos := size.IntSize
+	b := make([]byte, dbsize.IntSize+dbsize.Uint64Size)
+	txPos := dbsize.IntSize
 	page := dbfile.NewPageFromBytes(b)
 	if err := page.SetInt(0, START); err != nil {
 		return 0, fmt.Errorf("set start operation code at offset 0: %w", err)
@@ -126,7 +126,7 @@ type commitLogRecord struct {
 }
 
 func NewCommitLogRecord(page *dbfile.Page) LogRecord {
-	txPos := size.IntSize
+	txPos := dbsize.IntSize
 	txNum := page.GetUint64(txPos)
 	return &commitLogRecord{txNum: txNum}
 }
@@ -148,8 +148,8 @@ func (l *commitLogRecord) String() string {
 }
 
 func WriteCommitToLog(lm *dblog.LogManager, txNum uint64) (int, error) {
-	b := make([]byte, size.IntSize+size.Uint64Size)
-	txPos := size.IntSize
+	b := make([]byte, dbsize.IntSize+dbsize.Uint64Size)
+	txPos := dbsize.IntSize
 	page := dbfile.NewPageFromBytes(b)
 	if err := page.SetInt(0, COMMIT); err != nil {
 		return 0, fmt.Errorf("set commit operation code at offset 0: %w", err)
@@ -169,7 +169,7 @@ type rollbackLogRecord struct {
 }
 
 func NewRollbackLogRecord(page *dbfile.Page) LogRecord {
-	txPos := size.IntSize
+	txPos := dbsize.IntSize
 	txNum := page.GetUint64(txPos)
 	return &rollbackLogRecord{txNum: txNum}
 }
@@ -191,8 +191,8 @@ func (l *rollbackLogRecord) undo(ctx context.Context, tx *Transaction) error {
 }
 
 func WriteRollbackToLog(lm *dblog.LogManager, txNum uint64) (int, error) {
-	b := make([]byte, size.IntSize+size.Uint64Size)
-	txPos := size.IntSize
+	b := make([]byte, dbsize.IntSize+dbsize.Uint64Size)
+	txPos := dbsize.IntSize
 	page := dbfile.NewPageFromBytes(b)
 	if err := page.SetInt(0, ROLLBACK); err != nil {
 		return 0, fmt.Errorf("set rollback operation code at offset 0: %w", err)
@@ -215,16 +215,16 @@ type setIntLogRecord struct {
 }
 
 func NewSetIntLogRecord(page *dbfile.Page) LogRecord {
-	txPos := size.IntSize
+	txPos := dbsize.IntSize
 	txNum := page.GetUint64(txPos)
-	fileNamePos := txPos + size.Uint64Size
+	fileNamePos := txPos + dbsize.Uint64Size
 	fileName := page.GetString(fileNamePos)
 	blockNumPos := fileNamePos + dbfile.MaxStringLengthOnPage(len(fileName))
 	blockNum := page.GetInt(blockNumPos)
 	blockID := dbfile.NewBlockID(fileName, blockNum)
-	offsetPos := blockNumPos + size.IntSize
+	offsetPos := blockNumPos + dbsize.IntSize
 	offset := page.GetInt(offsetPos)
-	valuePos := offsetPos + size.IntSize
+	valuePos := offsetPos + dbsize.IntSize
 	value := page.GetInt(valuePos)
 	return &setIntLogRecord{txNum: txNum, blockID: blockID, offset: offset, value: value}
 }
@@ -256,12 +256,12 @@ func (l *setIntLogRecord) String() string {
 
 // SETINT,TXNUM,FILENAME,BLOCKNUM,OFFSET,VALUE
 func WriteIntToLog(lm *dblog.LogManager, txNum uint64, blockID dbfile.BlockID, offset int, value int) (int, error) {
-	txPos := size.IntSize
-	fileNamePos := txPos + size.Uint64Size
+	txPos := dbsize.IntSize
+	fileNamePos := txPos + dbsize.Uint64Size
 	blockPos := fileNamePos + dbfile.MaxStringLengthOnPage(len(blockID.FileName()))
-	offsetPos := blockPos + size.IntSize
-	valuePos := offsetPos + size.IntSize
-	recordLen := valuePos + size.IntSize
+	offsetPos := blockPos + dbsize.IntSize
+	valuePos := offsetPos + dbsize.IntSize
+	recordLen := valuePos + dbsize.IntSize
 	b := make([]byte, recordLen)
 	page := dbfile.NewPageFromBytes(b)
 	if err := page.SetInt(0, SETINT); err != nil {
@@ -297,16 +297,16 @@ type setStringLogRecord struct {
 }
 
 func NewSetStringLogRecord(page *dbfile.Page) LogRecord {
-	txPos := size.IntSize
+	txPos := dbsize.IntSize
 	txNum := page.GetUint64(txPos)
-	fileNamePos := txPos + size.Uint64Size
+	fileNamePos := txPos + dbsize.Uint64Size
 	fileName := page.GetString(fileNamePos)
 	blockNumPos := fileNamePos + dbfile.MaxStringLengthOnPage(len(fileName))
 	blockNum := page.GetInt(blockNumPos)
 	blockID := dbfile.NewBlockID(fileName, blockNum)
-	offsetPos := blockNumPos + size.IntSize
+	offsetPos := blockNumPos + dbsize.IntSize
 	offset := page.GetInt(offsetPos)
-	valuePos := offsetPos + size.IntSize
+	valuePos := offsetPos + dbsize.IntSize
 	value := page.GetString(valuePos)
 	return &setStringLogRecord{txNum: txNum, blockID: blockID, offset: offset, value: value}
 }
@@ -338,11 +338,11 @@ func (l *setStringLogRecord) String() string {
 
 // SETSTRING,TXNUM,FILENAME,BLOCKNUM,OFFSET,VALUE
 func WriteStringToLog(lm *dblog.LogManager, txNum uint64, blockID dbfile.BlockID, offset int, value string) (int, error) {
-	txPos := size.IntSize
-	fileNamePos := txPos + size.Uint64Size
+	txPos := dbsize.IntSize
+	fileNamePos := txPos + dbsize.Uint64Size
 	blockPos := fileNamePos + dbfile.MaxStringLengthOnPage(len(blockID.FileName()))
-	offsetPos := blockPos + size.IntSize
-	valuePos := offsetPos + size.IntSize
+	offsetPos := blockPos + dbsize.IntSize
+	valuePos := offsetPos + dbsize.IntSize
 	recordLen := valuePos + dbfile.MaxStringLengthOnPage(len(value))
 	b := make([]byte, recordLen)
 	page := dbfile.NewPageFromBytes(b)

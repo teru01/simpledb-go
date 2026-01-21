@@ -6,7 +6,7 @@ import (
 	"sync"
 
 	"github.com/teru01/simpledb-go/dbfile"
-	"github.com/teru01/simpledb-go/size"
+	"github.com/teru01/simpledb-go/dbsize"
 )
 
 type LogManager struct {
@@ -94,8 +94,8 @@ func (lm *LogManager) Append(logRecord []byte) (int, error) {
 
 	boundary := lm.state.logPage.GetInt(0)
 	recordSize := len(logRecord)
-	bytesNeeded := recordSize + size.IntSize
-	if boundary-bytesNeeded < size.IntSize {
+	bytesNeeded := recordSize + dbsize.IntSize
+	if boundary-bytesNeeded < dbsize.IntSize {
 		// はみ出る
 		if err := lm.flushlocked(); err != nil {
 			return 0, fmt.Errorf("flush log page before appending new block: %w", err)
@@ -155,7 +155,7 @@ func (lm *LogManager) Iterator() (iter.Seq2[[]byte, error], error) {
 				}
 			}
 			boundary := p.GetInt(0)
-			for j := boundary; j < p.Length(); j += p.GetInt(j) + size.IntSize {
+			for j := boundary; j < p.Length(); j += p.GetInt(j) + dbsize.IntSize {
 				if !yield(p.GetBytes(j), nil) {
 					return
 				}

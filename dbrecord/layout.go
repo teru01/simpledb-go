@@ -2,7 +2,7 @@ package dbrecord
 
 import (
 	"github.com/teru01/simpledb-go/dbfile"
-	"github.com/teru01/simpledb-go/size"
+	"github.com/teru01/simpledb-go/dbsize"
 )
 
 // schemaのフィールドの配置情報
@@ -14,7 +14,7 @@ type Layout struct {
 
 func NewLayout(schema *Schema) *Layout {
 	layout := Layout{schema: schema}
-	pos := size.IntSize
+	pos := dbsize.IntSize
 	offsets := make(map[string]int)
 	for _, field := range schema.fields {
 		offsets[field] = pos
@@ -49,7 +49,7 @@ func (l *Layout) SlotSize() int {
 func (l *Layout) LengthInBytes(fieldName string) int {
 	switch l.schema.FieldType(fieldName) {
 	case FieldTypeInt:
-		return size.IntSize
+		return dbsize.IntSize
 	case FieldTypeString:
 		return dbfile.MaxStringLengthOnPage(l.schema.Length(fieldName))
 	}
