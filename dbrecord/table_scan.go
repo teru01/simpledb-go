@@ -129,8 +129,8 @@ func (t *TableScan) MoveToRID(ctx context.Context, rID RID) error {
 	return nil
 }
 
-func (t *TableScan) RID() RID {
-	return *NewRID(t.state.recordPage.Block().BlockNum(), t.state.currentSlot)
+func (t *TableScan) RID() *RID {
+	return NewRID(t.state.recordPage.Block().BlockNum(), t.state.currentSlot)
 }
 
 func (t *TableScan) SetString(ctx context.Context, fieldName string, value string) error {

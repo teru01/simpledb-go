@@ -8,7 +8,11 @@ import (
 	"github.com/teru01/simpledb-go/dbtx"
 )
 
-const MaxNameLength = 16
+const (
+	MaxNameLength         = 16
+	TableCatalogTableName = "table_catalog"
+	FieldCatalogTableName = "field_catalog"
+)
 
 type TableManager struct {
 	tableCatalogLayout *dbrecord.Layout
@@ -38,7 +42,7 @@ func NewTableManager(isNew bool, tx *dbtx.Transaction) *TableManager {
 func (t *TableManager) CreateTable(ctx context.Context, tableName string, schema *dbrecord.Schema, tx *dbtx.Transaction) error {
 	layout := dbrecord.NewLayout(schema)
 
-	tableCatlog, err := dbrecord.NewTableScan(ctx, tx, "table_catalog", layout)
+	tableCatlog, err := dbrecord.NewTableScan(ctx, tx, TableCatalogTableName, layout)
 	if err != nil {
 		return fmt.Errorf("create table scan for table_catalog when creating %q: %w", tableName, err)
 	}
@@ -54,7 +58,7 @@ func (t *TableManager) CreateTable(ctx context.Context, tableName string, schema
 	if err := tableCatlog.Close(); err != nil {
 		return fmt.Errorf("close table scan for table_catalog when creating %q: %w", tableName, err)
 	}
-	fieldCatlog, err := dbrecord.NewTableScan(ctx, tx, "field_catalog", layout)
+	fieldCatlog, err := dbrecord.NewTableScan(ctx, tx, FieldCatalogTableName, layout)
 	if err != nil {
 		return fmt.Errorf("create table scan for field_catalog when creating %q: %w", tableName, err)
 	}
@@ -82,7 +86,7 @@ func (t *TableManager) CreateTable(ctx context.Context, tableName string, schema
 }
 
 func (t *TableManager) GetLayout(ctx context.Context, tableName string, tx *dbtx.Transaction) (*dbrecord.Layout, error) {
-	tableCatlog, err := dbrecord.NewTableScan(ctx, tx, "table_catalog", t.tableCatalogLayout)
+	tableCatlog, err := dbrecord.NewTableScan(ctx, tx, TableCatalogTableName, t.tableCatalogLayout)
 	if err != nil {
 		return nil, fmt.Errorf("create table scan: %w", err)
 	}
@@ -90,7 +94,7 @@ func (t *TableManager) GetLayout(ctx context.Context, tableName string, tx *dbtx
 	for {
 		next, err := tableCatlog.Next(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("go next for %q: %w", "table_catalog", err)
+			return nil, fmt.Errorf("go next for %q: %w", TableCatalogTableName, err)
 		}
 		if !next {
 			if err := tableCatlog.Close(); err != nil {
@@ -113,7 +117,7 @@ func (t *TableManager) GetLayout(ctx context.Context, tableName string, tx *dbtx
 
 	schema := dbrecord.NewSchema()
 
-	fieldCatlog, err := dbrecord.NewTableScan(ctx, tx, "field_catalog", t.fieldCatalogLayout)
+	fieldCatlog, err := dbrecord.NewTableScan(ctx, tx, FieldCatalogTableName, t.fieldCatalogLayout)
 	if err != nil {
 		return nil, fmt.Errorf("create table scan: %w", err)
 	}
@@ -122,7 +126,7 @@ func (t *TableManager) GetLayout(ctx context.Context, tableName string, tx *dbtx
 	for {
 		next, err := fieldCatlog.Next(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("go next for %q: %w", "field_catalog", err)
+			return nil, fmt.Errorf("go next for %q: %w", FieldCatalogTableName, err)
 		}
 		if !next {
 			if err := fieldCatlog.Close(); err != nil {

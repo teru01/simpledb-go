@@ -14,25 +14,25 @@ const (
 )
 
 type ViewManager struct {
-	table_manager *TableManager
+	tableManager *TableManager
 }
 
-func NewViewManager(ctx context.Context, isNew bool, table_manager *TableManager, tx *dbtx.Transaction) (*ViewManager, error) {
+func NewViewManager(ctx context.Context, isNew bool, tableManager *TableManager, tx *dbtx.Transaction) (*ViewManager, error) {
 	if isNew {
 		schema := dbrecord.NewSchema()
 		schema.AddStringField("viewname", MaxNameLength)
 		schema.AddStringField("viewdef", MaxViewDefinitionLength)
-		if err := table_manager.CreateTable(ctx, ViewCatalogTableName, schema, tx); err != nil {
+		if err := tableManager.CreateTable(ctx, ViewCatalogTableName, schema, tx); err != nil {
 			return nil, fmt.Errorf("init view manager: %w", err)
 		}
 	}
 	return &ViewManager{
-		table_manager: table_manager,
+		tableManager: tableManager,
 	}, nil
 }
 
 func (v *ViewManager) CreateView(ctx context.Context, viewName string, viewDef string, tx *dbtx.Transaction) error {
-	layout, err := v.table_manager.GetLayout(ctx, ViewCatalogTableName, tx)
+	layout, err := v.tableManager.GetLayout(ctx, ViewCatalogTableName, tx)
 	if err != nil {
 		return fmt.Errorf("get layout before creating view %q: %w", viewName, err)
 	}
@@ -56,7 +56,7 @@ func (v *ViewManager) CreateView(ctx context.Context, viewName string, viewDef s
 }
 
 func (v *ViewManager) GetViewDef(ctx context.Context, viewName string, tx *dbtx.Transaction) (string, error) {
-	layout, err := v.table_manager.GetLayout(ctx, ViewCatalogTableName, tx)
+	layout, err := v.tableManager.GetLayout(ctx, ViewCatalogTableName, tx)
 	if err != nil {
 		return "", fmt.Errorf("get layout before get view %q: %w", viewName, err)
 	}
