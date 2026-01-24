@@ -42,7 +42,7 @@ func NewTableManager(isNew bool, tx *dbtx.Transaction) *TableManager {
 func (t *TableManager) CreateTable(ctx context.Context, tableName string, schema *dbrecord.Schema, tx *dbtx.Transaction) error {
 	layout := dbrecord.NewLayout(schema)
 
-	tableCatlog, err := dbrecord.NewTableScan(ctx, tx, TableCatalogTableName, layout)
+	tableCatlog, err := dbrecord.NewTableScan(ctx, tx, TableCatalogTableName, t.tableCatalogLayout)
 	if err != nil {
 		return fmt.Errorf("create table scan for table_catalog when creating %q: %w", tableName, err)
 	}
@@ -58,11 +58,14 @@ func (t *TableManager) CreateTable(ctx context.Context, tableName string, schema
 	if err := tableCatlog.Close(); err != nil {
 		return fmt.Errorf("close table scan for table_catalog when creating %q: %w", tableName, err)
 	}
-	fieldCatlog, err := dbrecord.NewTableScan(ctx, tx, FieldCatalogTableName, layout)
+	fieldCatlog, err := dbrecord.NewTableScan(ctx, tx, FieldCatalogTableName, t.fieldCatalogLayout)
 	if err != nil {
 		return fmt.Errorf("create table scan for field_catalog when creating %q: %w", tableName, err)
 	}
 	for _, fieldName := range schema.Fields() {
+		if err := fieldCatlog.Insert(ctx); err != nil {
+			return fmt.Errorf("insert to %q: %w", FieldCatalogTableName, err)
+		}
 		if err := fieldCatlog.SetString(ctx, "tablename", tableName); err != nil {
 			return fmt.Errorf("set tablename for %q: %w", tableName, err)
 		}

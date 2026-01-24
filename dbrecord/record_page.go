@@ -110,6 +110,9 @@ func (r *RecordPage) InsertNextAvabilableSlotAfter(ctx context.Context, slot int
 // slotより後ろ(slotを含まない)でstatusを持つslot offsetを返す
 func (r *RecordPage) searchAfter(ctx context.Context, slot int, status SlotStatus) (int, error) {
 	limit := r.SlotLengthInBlock()
+	if limit == 0 {
+		return 0, fmt.Errorf("slot length is too large. increase the block size.")
+	}
 	for i := slot + 1; i < limit; i++ {
 		value, err := r.tx.GetInt(ctx, r.blk, r.slotOffset(i))
 		if err != nil {

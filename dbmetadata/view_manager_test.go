@@ -23,7 +23,7 @@ func setupTestViewManager(t *testing.T) (*dbmetadata.ViewManager, *dbtx.Transact
 		t.Fatalf("failed to open temp dir: %v", err)
 	}
 
-	fm, err := dbfile.NewFileManager(dirFile, 400)
+	fm, err := dbfile.NewFileManager(dirFile, 4000) // spanned slotでないため、大きめにとる
 	if err != nil {
 		t.Fatalf("failed to create file manager: %v", err)
 	}
