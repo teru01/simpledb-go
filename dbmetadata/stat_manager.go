@@ -26,8 +26,18 @@ type StatManager struct {
 	numCalls     int
 }
 
-func NewStatManager(tableManager *TableManager, tx *dbtx.Transaction) *StatManager {
-	return &StatManager{}
+func NewStatManager(ctx context.Context, tableManager *TableManager, tx *dbtx.Transaction) (*StatManager, error) {
+	s := &StatManager{
+		tableManager: tableManager,
+		tableStats:   make(map[string]*StatInfo),
+		numCalls:     0,
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := s.refreshStatisticsLocked(ctx, tx); err != nil {
+		return nil, fmt.Errorf("refresh stats: %w", err)
+	}
+	return s, nil
 }
 
 func (s *StatManager) GetStatInfo(ctx context.Context, tableName string, layout *dbrecord.Layout, tx *dbtx.Transaction) (*StatInfo, error) {
