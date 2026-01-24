@@ -22,7 +22,7 @@ type StatInfo struct {
 type StatManager struct {
 	mu           sync.Mutex
 	tableManager *TableManager
-	tableStats   map[string]StatInfo
+	tableStats   map[string]*StatInfo
 	numCalls     int
 }
 
@@ -30,21 +30,27 @@ func NewStatManager(tableManager *TableManager, tx *dbtx.Transaction) *StatManag
 	return &StatManager{}
 }
 
-func (s *StatManager) GetStatInfo(tableName string, layout *dbrecord.Layout, tx *dbtx.Transaction) *StatInfo {
+func (s *StatManager) GetStatInfo(ctx context.Context, tableName string, layout *dbrecord.Layout, tx *dbtx.Transaction) (*StatInfo, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.numCalls++
 	if s.numCalls > statRefreshInterval {
-
+		if err := s.refreshStatisticsLocked(ctx, tx); err != nil {
+			return nil, fmt.Errorf("refresh stats: %w", err)
+		}
 	}
 	si, ok := s.tableStats[tableName]
+	var err error
 	if !ok {
-		// si =
+		si, err = s.calcTableStatsLocked(ctx, tableName, layout, tx)
+		if err != nil {
+			return nil, fmt.Errorf("calc table stats for %q: %w", tableName, err)
+		}
 	}
-	return &si
+	return si, nil
 }
 
-func (s *StatManager) RefreshStatistics(ctx context.Context, tx *dbtx.Transaction) (err error) {
+func (s *StatManager) refreshStatisticsLocked(ctx context.Context, tx *dbtx.Transaction) (err error) {
 	tableStats := make(map[string]*StatInfo)
 	s.numCalls = 0
 
@@ -77,18 +83,16 @@ func (s *StatManager) RefreshStatistics(ctx context.Context, tx *dbtx.Transactio
 		if err != nil {
 			return fmt.Errorf("get layout for %q: %w", tableName, err)
 		}
-		if _, exists := tableStats[tableName]; !exists {
-			stats, err := s.calcTableStats(ctx, tableName, tableLayout, tx)
-			if err != nil {
-				return fmt.Errorf("get stats for %q: %w", tableName, err)
-			}
-			tableStats[tableName] = stats
+		stats, err := s.calcTableStatsLocked(ctx, tableName, tableLayout, tx)
+		if err != nil {
+			return fmt.Errorf("get stats for %q: %w", tableName, err)
 		}
+		tableStats[tableName] = stats
 	}
 	return nil
 }
 
-func (s *StatManager) calcTableStats(ctx context.Context, tableName string, layout *dbrecord.Layout, tx *dbtx.Transaction) (statInfo *StatInfo, err error) {
+func (s *StatManager) calcTableStatsLocked(ctx context.Context, tableName string, layout *dbrecord.Layout, tx *dbtx.Transaction) (statInfo *StatInfo, err error) {
 	ts, err := dbrecord.NewTableScan(ctx, tx, tableName, layout)
 	if err != nil {
 		return nil, fmt.Errorf("new table scan for %q: %w", tableName, err)
