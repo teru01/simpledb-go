@@ -16,7 +16,10 @@ type MetadataManager struct {
 }
 
 func NewMetadataManager(ctx context.Context, isNew bool, tx *dbtx.Transaction) (*MetadataManager, error) {
-	tableManager := NewTableManager(isNew, tx)
+	tableManager, err := NewTableManager(ctx, isNew, tx)
+	if err != nil {
+		return nil, fmt.Errorf("new table manager: %w", err)
+	}
 	statManager, err := NewStatManager(ctx, tableManager, tx)
 	if err != nil {
 		return nil, fmt.Errorf("new stat manager: %w", err)

@@ -41,7 +41,11 @@ func setupTestTableManager(t *testing.T) (*dbmetadata.TableManager, *dbtx.Transa
 		t.Fatalf("failed to create transaction: %v", err)
 	}
 
-	tm := dbmetadata.NewTableManager(true, tx)
+	ctx := context.Background()
+	tm, err := dbmetadata.NewTableManager(ctx, true, tx)
+	if err != nil {
+		t.Fatalf("failed to create table manager: %v", err)
+	}
 
 	cleanup := func() {
 		dirFile.Close()

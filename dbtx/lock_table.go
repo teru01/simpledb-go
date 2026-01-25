@@ -55,7 +55,7 @@ func (l *LockTable) SLock(ctx context.Context, blk dbfile.BlockID) error {
 		select {
 		case <-waitCh: // xlockが外れた時
 		case <-ctx.Done():
-			return dberr.New(dberr.CodeTransactionLockWaitAbort, "timeout. It took too long to get xlock", nil)
+			return dberr.New(dberr.CodeTransactionLockWaitAbort, "timeout. It took too long to get slock for block "+blk.String(), nil)
 		}
 	}
 }
@@ -90,7 +90,7 @@ func (l *LockTable) XLock(ctx context.Context, blk dbfile.BlockID) error {
 		select {
 		case <-waitCh:
 		case <-ctx.Done():
-			return dberr.New(dberr.CodeTransactionLockWaitAbort, "timeout. It took too long to get xlock", nil)
+			return dberr.New(dberr.CodeTransactionLockWaitAbort, "timeout. It took too long to get xlock for block "+blk.String(), nil)
 		}
 	}
 }

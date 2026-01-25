@@ -19,7 +19,7 @@ type TableManager struct {
 	fieldCatalogLayout *dbrecord.Layout
 }
 
-func NewTableManager(isNew bool, tx *dbtx.Transaction) *TableManager {
+func NewTableManager(ctx context.Context, isNew bool, tx *dbtx.Transaction) (*TableManager, error) {
 	tableCatalogSchema := dbrecord.NewSchema()
 	tableCatalogSchema.AddStringField("tablename", MaxNameLength)
 	tableCatalogSchema.AddIntField("slotsize")
@@ -33,10 +33,20 @@ func NewTableManager(isNew bool, tx *dbtx.Transaction) *TableManager {
 	fieldCatalogSchema.AddIntField("offset")
 	fieldCatalogLayout := dbrecord.NewLayout(fieldCatalogSchema)
 
-	return &TableManager{
+	t := &TableManager{
 		tableCatalogLayout: tableCatalogLayout,
 		fieldCatalogLayout: fieldCatalogLayout,
 	}
+
+	if isNew {
+		if err := t.CreateTable(ctx, TableCatalogTableName, tableCatalogSchema, tx); err != nil {
+			return nil, fmt.Errorf("create table catalog: %w", err)
+		}
+		if err := t.CreateTable(ctx, FieldCatalogTableName, fieldCatalogSchema, tx); err != nil {
+			return nil, fmt.Errorf("create field catalog: %w", err)
+		}
+	}
+	return t, nil
 }
 
 func (t *TableManager) CreateTable(ctx context.Context, tableName string, schema *dbrecord.Schema, tx *dbtx.Transaction) error {
