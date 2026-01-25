@@ -21,12 +21,16 @@ type TableScanState struct {
 	currentSlot int
 }
 
+func TableFileName(tableName string) string {
+	return fmt.Sprintf("%s.tbl", tableName)
+}
+
 func NewTableScan(ctx context.Context, tx *dbtx.Transaction, tableName string, layout *Layout) (*TableScan, error) {
 	var (
 		state *TableScanState
 		err   error
 	)
-	fileName := fmt.Sprintf("%s.tbl", tableName)
+	fileName := TableFileName(tableName)
 	t := &TableScan{
 		tx:       tx,
 		layout:   layout,

@@ -38,7 +38,12 @@ func NewTableManager(ctx context.Context, isNew bool, tx *dbtx.Transaction) (*Ta
 		fieldCatalogLayout: fieldCatalogLayout,
 	}
 
-	if isNew {
+	exists, err := t.tableFileExists(ctx, tx)
+	if err != nil {
+		return nil, fmt.Errorf("check if table file exists: %w", err)
+	}
+
+	if isNew || !exists {
 		if err := t.CreateTable(ctx, TableCatalogTableName, tableCatalogSchema, tx); err != nil {
 			return nil, fmt.Errorf("create table catalog: %w", err)
 		}
@@ -47,6 +52,14 @@ func NewTableManager(ctx context.Context, isNew bool, tx *dbtx.Transaction) (*Ta
 		}
 	}
 	return t, nil
+}
+
+func (t *TableManager) tableFileExists(ctx context.Context, tx *dbtx.Transaction) (bool, error) {
+	size, err := tx.Size(ctx, dbrecord.TableFileName(TableCatalogTableName))
+	if err != nil {
+		return false, fmt.Errorf("get size for %q: %w", dbrecord.TableFileName(TableCatalogTableName), err)
+	}
+	return size > 0, nil
 }
 
 func (t *TableManager) CreateTable(ctx context.Context, tableName string, schema *dbrecord.Schema, tx *dbtx.Transaction) error {
