@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"sync"
 
 	"github.com/teru01/simpledb-go/dbrecord"
@@ -15,8 +16,9 @@ const (
 )
 
 type StatInfo struct {
-	numBlocks  int
-	numRecords int
+	numBlocks         int
+	numRecords        int
+	distinctValuesMap map[string]int
 }
 
 type StatManager struct {
@@ -124,10 +126,73 @@ func (s *StatManager) calcTableStatsLocked(ctx context.Context, tableName string
 		}
 		numRecord++
 	}
+
+	d, err := s.CalcDistinctValues(ctx, numRecord, ts, layout)
+	if err != nil {
+		return nil, fmt.Errorf("calc distinct values for %q: %w", tableName, err)
+	}
+
 	return &StatInfo{
-		numBlocks:  numBlocks,
-		numRecords: numRecord,
+		numBlocks:         numBlocks,
+		numRecords:        numRecord,
+		distinctValuesMap: d,
 	}, nil
+}
+
+func (s *StatManager) CalcDistinctValues(ctx context.Context, numRecord int, ts *dbrecord.TableScan, layout *dbrecord.Layout) (map[string]int, error) {
+	// distinct valueを計算するサンプル数
+	numSamples := numRecord/10 + 1
+	if err := ts.SetStateToBeforeFirst(ctx); err != nil {
+		return nil, fmt.Errorf("set state to before first for %q: %w", ts.TableName(), err)
+	}
+	distinctValuesForCalc := make(map[string]map[string]struct{})
+	for i := 0; i < numSamples; i++ {
+		next, err := ts.Next(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("go next for %q: %w", ts.TableName(), err)
+		}
+		if !next {
+			break
+		}
+		for _, field := range layout.Schema().Fields() {
+			var fieldValString string
+			switch layout.Schema().FieldType(field) {
+			case dbrecord.FieldTypeInt:
+				val, err := ts.GetInt(ctx, field)
+				if err != nil {
+					return nil, fmt.Errorf("get int value for %q: %w", field, err)
+				}
+				fieldValString = strconv.Itoa(val)
+			case dbrecord.FieldTypeString:
+				val, err := ts.GetString(ctx, field)
+				if err != nil {
+					return nil, fmt.Errorf("get string value for %q: %w", field, err)
+				}
+				fieldValString = val
+			}
+			if len(distinctValuesForCalc[field]) == 0 {
+				distinctValuesForCalc[field] = make(map[string]struct{})
+			}
+			distinctValuesForCalc[field][fieldValString] = struct{}{}
+		}
+	}
+
+	distinctValues := make(map[string]int)
+	for field, m := range distinctValuesForCalc {
+		if len(m) > int(float64(numSamples)*0.9) {
+			// サンプル数とパターン数がほぼ同一: idなどの可能性が高い
+			// レコードの数だけパターンがあると近似
+			distinctValues[field] = numRecord
+		} else if len(m) < int(float64(numSamples)*0.1) {
+			// パターン数がサンプル数よりも大きく少ない: 性別やフラグなど
+			// パターンが出来っていると近似
+			distinctValues[field] = len(m)
+		} else {
+			// それ以外は同じ比率で含まれてると近似
+			distinctValues[field] = len(m) * numRecord / numSamples
+		}
+	}
+	return distinctValues, nil
 }
 
 func NewStatInfo(numBlocks, numRecords int) *StatInfo {
@@ -146,5 +211,9 @@ func (s *StatInfo) RecordsOutput() int {
 }
 
 func (s *StatInfo) DistinctValues(fieldName string) int {
-	return 1 + (s.numRecords / 3)
+	return s.distinctValuesMap[fieldName]
+}
+
+func (s *StatInfo) DistinctValuesMap() map[string]int {
+	return s.distinctValuesMap
 }

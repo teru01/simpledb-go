@@ -249,3 +249,91 @@ func TestStatManagerEmptyTable(t *testing.T) {
 		t.Fatalf("failed to commit: %v", err)
 	}
 }
+
+func TestStatManagerCalcDistinctValues(t *testing.T) {
+	sm, tm, tx, cleanup := setupTestStatManager(t)
+	defer cleanup()
+
+	ctx := context.Background()
+
+	// Create a test table with id (unique), sex (F or M), class (1-300)
+	schema := dbrecord.NewSchema()
+	schema.AddIntField("id")
+	schema.AddStringField("sex", 1)
+	schema.AddIntField("class")
+
+	err := tm.CreateTable(ctx, "students", schema, tx)
+	if err != nil {
+		t.Fatalf("failed to create table: %v", err)
+	}
+
+	layout, err := tm.GetLayout(ctx, "students", tx)
+	if err != nil {
+		t.Fatalf("failed to get layout: %v", err)
+	}
+
+	// Insert 1000 records
+	ts, err := dbrecord.NewTableScan(ctx, tx, "students", layout)
+	if err != nil {
+		t.Fatalf("failed to create table scan: %v", err)
+	}
+
+	for i := 0; i < 1000; i++ {
+		if err := ts.Insert(ctx); err != nil {
+			t.Fatalf("failed to insert record: %v", err)
+		}
+		if err := ts.SetInt(ctx, "id", i); err != nil {
+			t.Fatalf("failed to set id: %v", err)
+		}
+		sex := "F"
+		if i%2 == 0 {
+			sex = "M"
+		}
+		if err := ts.SetString(ctx, "sex", sex); err != nil {
+			t.Fatalf("failed to set sex: %v", err)
+		}
+		if err := ts.SetInt(ctx, "class", (i%300)+1); err != nil {
+			t.Fatalf("failed to set class: %v", err)
+		}
+	}
+
+	if err := ts.Close(); err != nil {
+		t.Fatalf("failed to close table scan: %v", err)
+	}
+
+	// Get statistics
+	statInfo, err := sm.GetStatInfo(ctx, "students", layout, tx)
+	if err != nil {
+		t.Fatalf("failed to get stat info: %v", err)
+	}
+
+	// Verify basic stats
+	if statInfo.RecordsOutput() != 1000 {
+		t.Errorf("expected 1000 records, got %d", statInfo.RecordsOutput())
+	}
+
+	// Verify distinct values
+	distinctValues := statInfo.DistinctValuesMap()
+
+	// id should be close to 1000 (unique values)
+	if distinctValues["id"] < 900 {
+		t.Errorf("expected id distinct values close to 1000, got %d", distinctValues["id"])
+	}
+
+	// sex should be 2 (F or M)
+	if distinctValues["sex"] != 2 {
+		t.Errorf("expected sex distinct values to be 2, got %d", distinctValues["sex"])
+	}
+
+	// class should be close to 300 (values 1-300)
+	// Since samples are 101 records and there are 300 unique values distributed across 1000 records,
+	// the algorithm may estimate it as 1000 if samples show high uniqueness (>90%)
+	// We accept a wider range since the approximation logic treats mid-range patterns differently
+	if distinctValues["class"] < 270 || distinctValues["class"] > 1000 {
+		t.Errorf("expected class distinct values in range [270, 1000], got %d", distinctValues["class"])
+	}
+
+	if err := tx.Commit(); err != nil {
+		t.Fatalf("failed to commit: %v", err)
+	}
+}

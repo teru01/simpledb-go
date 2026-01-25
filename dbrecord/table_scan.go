@@ -10,10 +10,11 @@ import (
 )
 
 type TableScan struct {
-	tx       *dbtx.Transaction
-	layout   *Layout
-	fileName string
-	state    *TableScanState
+	tx        *dbtx.Transaction
+	layout    *Layout
+	fileName  string
+	tableName string
+	state     *TableScanState
 }
 
 type TableScanState struct {
@@ -32,9 +33,10 @@ func NewTableScan(ctx context.Context, tx *dbtx.Transaction, tableName string, l
 	)
 	fileName := TableFileName(tableName)
 	t := &TableScan{
-		tx:       tx,
-		layout:   layout,
-		fileName: fileName,
+		tx:        tx,
+		layout:    layout,
+		tableName: tableName,
+		fileName:  fileName,
 	}
 	size, err := tx.Size(ctx, fileName)
 	if err != nil {
@@ -284,4 +286,8 @@ func (t *TableScan) atLastBlock(ctx context.Context) (bool, error) {
 		return false, fmt.Errorf("get table size for %q: %w", t.fileName, err)
 	}
 	return t.state.recordPage.Block().BlockNum() == size-1, nil
+}
+
+func (t *TableScan) TableName() string {
+	return t.tableName
 }
