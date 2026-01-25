@@ -13,7 +13,7 @@ const (
 	IndexCatalogTableName = "index_catalog"
 )
 
-type IndexManger struct {
+type IndexManager struct {
 	layout       *dbrecord.Layout
 	tableManager *TableManager
 	statManager  *StatManager
@@ -30,7 +30,7 @@ type IndexInfo struct {
 	statInfo    *StatInfo
 }
 
-func NewIndexManager(ctx context.Context, isNew bool, tableManager *TableManager, statManager *StatManager, tx *dbtx.Transaction) (*IndexManger, error) {
+func NewIndexManager(ctx context.Context, isNew bool, tableManager *TableManager, statManager *StatManager, tx *dbtx.Transaction) (*IndexManager, error) {
 	if isNew {
 		schema := dbrecord.NewSchema()
 		schema.AddStringField("indexname", MaxNameLength)
@@ -44,14 +44,14 @@ func NewIndexManager(ctx context.Context, isNew bool, tableManager *TableManager
 	if err != nil {
 		return nil, fmt.Errorf("get layout for %q: %w", IndexCatalogTableName, err)
 	}
-	return &IndexManger{
+	return &IndexManager{
 		layout:       l,
 		tableManager: tableManager,
 		statManager:  statManager,
 	}, nil
 }
 
-func (i *IndexManger) CreateIndex(ctx context.Context, indexName string, tableName string, fieldName string, tx *dbtx.Transaction) error {
+func (i *IndexManager) CreateIndex(ctx context.Context, indexName string, tableName string, fieldName string, tx *dbtx.Transaction) error {
 	ts, err := dbrecord.NewTableScan(ctx, tx, IndexCatalogTableName, i.layout)
 	if err != nil {
 		return fmt.Errorf("new table scan for %q: %w", IndexCatalogTableName, err)
@@ -74,7 +74,7 @@ func (i *IndexManger) CreateIndex(ctx context.Context, indexName string, tableNa
 	return nil
 }
 
-func (i *IndexManger) GetIndexInfo(ctx context.Context, tableName string, tx *dbtx.Transaction) (indexInfos map[string]*IndexInfo, err error) {
+func (i *IndexManager) GetIndexInfo(ctx context.Context, tableName string, tx *dbtx.Transaction) (indexInfos map[string]*IndexInfo, err error) {
 	indexInfos = make(map[string]*IndexInfo)
 	ts, err := dbrecord.NewTableScan(ctx, tx, IndexCatalogTableName, i.layout)
 	if err != nil {
