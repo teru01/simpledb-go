@@ -38,11 +38,11 @@ func (s *Schema) AddStringField(fieldName string, length int) {
 	s.AddField(fieldName, FieldTypeString, length)
 }
 
-func (s *Schema) Add(fieldName string, schema Schema) {
+func (s *Schema) Add(fieldName string, schema *Schema) {
 	s.AddField(fieldName, schema.FieldType(fieldName), schema.Length(fieldName))
 }
 
-func (s *Schema) AddAll(schema Schema) {
+func (s *Schema) AddAll(schema *Schema) {
 	for _, fieldName := range schema.fields {
 		s.Add(fieldName, schema)
 	}

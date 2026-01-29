@@ -16,6 +16,8 @@ func NewProductScan(scan1 Scan, scan2 Scan) *ProductScan {
 	return &ProductScan{scan1: scan1, scan2: scan2}
 }
 
+// scan1は1番目に, scan2はheadにセットする
+// Next(ctx)参照
 func (s *ProductScan) SetStateToBeforeFirst(ctx context.Context) error {
 	if err := s.scan1.SetStateToBeforeFirst(ctx); err != nil {
 		return fmt.Errorf("set state to before first: %w", err)

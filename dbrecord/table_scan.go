@@ -91,7 +91,7 @@ func (t *TableScan) GetString(ctx context.Context, fieldName string) (string, er
 	return s, nil
 }
 
-func (t *TableScan) GetVal(ctx context.Context, fieldName string) (dbconstant.Constant, error) {
+func (t *TableScan) GetValue(ctx context.Context, fieldName string) (dbconstant.Constant, error) {
 	switch t.layout.Schema().FieldType(fieldName) {
 	case FieldTypeInt:
 		i, err := t.GetInt(ctx, fieldName)

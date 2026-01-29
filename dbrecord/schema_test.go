@@ -99,7 +99,7 @@ func TestAdd(t *testing.T) {
 	schema1.AddStringField("name", 20)
 
 	schema2 := dbrecord.NewSchema()
-	schema2.Add("id", *schema1)
+	schema2.Add("id", schema1)
 
 	if !schema2.HasField("id") {
 		t.Error("Schema2 should have field 'id'")
@@ -116,7 +116,7 @@ func TestAddAll(t *testing.T) {
 	schema1.AddIntField("age")
 
 	schema2 := dbrecord.NewSchema()
-	schema2.AddAll(*schema1)
+	schema2.AddAll(schema1)
 
 	if !schema2.HasField("id") {
 		t.Error("Schema2 should have field 'id'")

@@ -33,7 +33,11 @@ func (s *SelectScan) Next(ctx context.Context) (bool, error) {
 		if !ok {
 			break
 		}
-		if s.predicate.IsSatisfied(s.scan) {
+		result, err := s.predicate.IsSatisfied(ctx, s.scan)
+		if err != nil {
+			return false, fmt.Errorf("satisfication %q: %w", s.predicate.String, err)
+		}
+		if result {
 			return true, nil
 		}
 	}
