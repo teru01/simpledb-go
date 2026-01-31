@@ -9,11 +9,11 @@ import (
 )
 
 type Term struct {
-	lhs Expression
-	rhs Expression
+	lhs *Expression
+	rhs *Expression
 }
 
-func NewTerm(lhs Expression, rhs Expression) *Term {
+func NewTerm(lhs *Expression, rhs *Expression) *Term {
 	return &Term{lhs: lhs, rhs: rhs}
 }
 

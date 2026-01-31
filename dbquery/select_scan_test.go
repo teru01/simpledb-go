@@ -103,7 +103,7 @@ func TestSelectScanFilterByInt(t *testing.T) {
 	// Create predicate: age = 25
 	lhs := dbquery.NewExpressionFromFieldName("age")
 	rhs := dbquery.NewExpressionFromValue(dbconstant.NewIntConstant(25))
-	term := dbquery.NewTerm(*lhs, *rhs)
+	term := dbquery.NewTerm(lhs, rhs)
 	pred := dbquery.NewPredicate(term)
 
 	selectScan := dbquery.NewSelectScan(ts, pred)
@@ -190,7 +190,7 @@ func TestSelectScanFilterByString(t *testing.T) {
 	// Create predicate: name = "Alice"
 	lhs := dbquery.NewExpressionFromFieldName("name")
 	rhs := dbquery.NewExpressionFromValue(dbconstant.NewStringConstant("Alice"))
-	term := dbquery.NewTerm(*lhs, *rhs)
+	term := dbquery.NewTerm(lhs, rhs)
 	pred := dbquery.NewPredicate(term)
 
 	selectScan := dbquery.NewSelectScan(ts, pred)
@@ -278,11 +278,11 @@ func TestSelectScanMultipleTerms(t *testing.T) {
 	// Create predicate: name = "Alice" AND age = 25
 	lhs1 := dbquery.NewExpressionFromFieldName("name")
 	rhs1 := dbquery.NewExpressionFromValue(dbconstant.NewStringConstant("Alice"))
-	term1 := dbquery.NewTerm(*lhs1, *rhs1)
+	term1 := dbquery.NewTerm(lhs1, rhs1)
 
 	lhs2 := dbquery.NewExpressionFromFieldName("age")
 	rhs2 := dbquery.NewExpressionFromValue(dbconstant.NewIntConstant(25))
-	term2 := dbquery.NewTerm(*lhs2, *rhs2)
+	term2 := dbquery.NewTerm(lhs2, rhs2)
 
 	pred := dbquery.NewPredicate(term1, term2)
 
@@ -358,7 +358,7 @@ func TestSelectScanNoMatches(t *testing.T) {
 	// Create predicate: age = 100 (no match)
 	lhs := dbquery.NewExpressionFromFieldName("age")
 	rhs := dbquery.NewExpressionFromValue(dbconstant.NewIntConstant(100))
-	term := dbquery.NewTerm(*lhs, *rhs)
+	term := dbquery.NewTerm(lhs, rhs)
 	pred := dbquery.NewPredicate(term)
 
 	selectScan := dbquery.NewSelectScan(ts, pred)
@@ -386,7 +386,7 @@ func TestSelectScanHasField(t *testing.T) {
 
 	lhs := dbquery.NewExpressionFromFieldName("id")
 	rhs := dbquery.NewExpressionFromValue(dbconstant.NewIntConstant(1))
-	term := dbquery.NewTerm(*lhs, *rhs)
+	term := dbquery.NewTerm(lhs, rhs)
 	pred := dbquery.NewPredicate(term)
 
 	selectScan := dbquery.NewSelectScan(ts, pred)
@@ -449,7 +449,7 @@ func TestSelectScanUpdate(t *testing.T) {
 	// Create predicate: age = 25
 	lhs := dbquery.NewExpressionFromFieldName("age")
 	rhs := dbquery.NewExpressionFromValue(dbconstant.NewIntConstant(25))
-	term := dbquery.NewTerm(*lhs, *rhs)
+	term := dbquery.NewTerm(lhs, rhs)
 	pred := dbquery.NewPredicate(term)
 
 	selectScan := dbquery.NewSelectScan(ts, pred)
@@ -553,7 +553,7 @@ func TestSelectScanDelete(t *testing.T) {
 	// Create predicate: age = 25
 	lhs := dbquery.NewExpressionFromFieldName("age")
 	rhs := dbquery.NewExpressionFromValue(dbconstant.NewIntConstant(25))
-	term := dbquery.NewTerm(*lhs, *rhs)
+	term := dbquery.NewTerm(lhs, rhs)
 	pred := dbquery.NewPredicate(term)
 
 	selectScan := dbquery.NewSelectScan(ts, pred)
