@@ -16,7 +16,8 @@ func NewPredicate(terms ...*Term) *Predicate {
 	return &Predicate{terms: terms[:]}
 }
 
-func (p *Predicate) ConjoinWith(other Predicate) {
+// otherから条件を抜き出し結合する
+func (p *Predicate) ConjoinWith(other *Predicate) {
 	p.terms = append(p.terms, other.terms...)
 }
 

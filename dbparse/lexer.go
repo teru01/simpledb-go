@@ -11,80 +11,93 @@ import (
 )
 
 type Lexer struct {
-	keywords []string
-	scanner  scanner.Scanner
+	keywords  []string
+	scanner   scanner.Scanner
+	nextToken rune
 }
 
 func NewLexer(s string) *Lexer {
 	var scanner scanner.Scanner
 	scanner.Init(strings.NewReader(s))
-	scanner.Scan()
+	nextToken := scanner.Scan()
 	return &Lexer{
 		keywords: []string{"select", "from", "where", "and",
 			"insert", "into", "values", "delete", "update",
 			"set", "create", "table", "varchar",
 			"int", "view", "as", "index", "on"},
-		scanner: scanner,
+		scanner:   scanner,
+		nextToken: nextToken,
 	}
 }
 
 func (l *Lexer) IsNextString() bool {
-	next := l.scanner.Peek()
-	return next == scanner.String
+	return l.nextToken == scanner.String
 }
 
 func (l *Lexer) IsNextIdentifier() bool {
-	next := l.scanner.Peek()
-	return next == scanner.Ident
+	return l.nextToken == scanner.Ident
 }
 
 func (l *Lexer) IsNextInt() bool {
-	next := l.scanner.Peek()
-	return next == scanner.Int
+	return l.nextToken == scanner.Int
+}
+
+func (l *Lexer) IsNextKeyword(w string) bool {
+	return l.nextToken == scanner.Ident && l.scanner.TokenText() == w
+}
+
+func (l *Lexer) IsNextDelimiter(d rune) bool {
+	return l.nextToken == d
 }
 
 func (l *Lexer) EatDelimiter(d rune) error {
-	tok := l.scanner.Scan()
-	if tok != d {
-		return dberr.New(dberr.CodeSyntaxError, fmt.Sprintf("expected delimiter %q but got %q", d, tok), nil)
+	if l.nextToken != d {
+		return dberr.New(dberr.CodeSyntaxError, fmt.Sprintf("expected delimiter %q but got %q", d, l.nextToken), nil)
 	}
+	l.nextToken = l.scanner.Scan()
 	return nil
 }
 
 func (l *Lexer) EatIntConstant() (int, error) {
-	tok := l.scanner.Scan()
-	if tok != scanner.Int {
-		return 0, dberr.New(dberr.CodeSyntaxError, fmt.Sprintf("expected int but got %q", tok), nil)
+	if l.nextToken != scanner.Int {
+		return 0, dberr.New(dberr.CodeSyntaxError, fmt.Sprintf("expected int but got %q", l.nextToken), nil)
 	}
-	return strconv.Atoi(l.scanner.TokenText())
+	val, err := strconv.Atoi(l.scanner.TokenText())
+	if err != nil {
+		return 0, dberr.New(dberr.CodeSyntaxError, fmt.Sprintf("invalid int constant: %q", l.scanner.TokenText()), nil)
+	}
+	l.nextToken = l.scanner.Scan()
+	return val, nil
 }
 
 func (l *Lexer) EatStringConstant() (string, error) {
-	tok := l.scanner.Scan()
-	if tok != scanner.String {
-		return "", dberr.New(dberr.CodeSyntaxError, fmt.Sprintf("expected string but got %q", tok), nil)
+	if l.nextToken != scanner.String {
+		return "", dberr.New(dberr.CodeSyntaxError, fmt.Sprintf("expected string but got %q", l.nextToken), nil)
 	}
-	return strconv.Unquote(l.scanner.TokenText())
-}
-
-func (l *Lexer) EatKeyword(w string) error {
-	tok := l.scanner.Scan()
-	if tok != scanner.Ident {
-		return dberr.New(dberr.CodeSyntaxError, fmt.Sprintf("expected keyword %q but got %q", w, tok), nil)
+	str, err := strconv.Unquote(l.scanner.TokenText())
+	if err != nil {
+		return "", dberr.New(dberr.CodeSyntaxError, fmt.Sprintf("invalid string constant: %q", l.scanner.TokenText()), nil)
 	}
-	if l.scanner.TokenText() != w {
-		return dberr.New(dberr.CodeSyntaxError, fmt.Sprintf("expected keyword %q but got %q", w, l.scanner.TokenText()), nil)
-	}
-	return nil
+	l.nextToken = l.scanner.Scan()
+	return strings.ToLower(str), nil
 }
 
 func (l *Lexer) EatIdentifier() (string, error) {
-	tok := l.scanner.Scan()
-	if tok != scanner.Ident {
-		return "", dberr.New(dberr.CodeSyntaxError, fmt.Sprintf("expected identifier but got %q", tok), nil)
+	if l.nextToken != scanner.Ident {
+		return "", dberr.New(dberr.CodeSyntaxError, fmt.Sprintf("expected identifier but got %q", l.nextToken), nil)
 	}
 	if slices.Contains(l.keywords, l.scanner.TokenText()) {
 		return "", dberr.New(dberr.CodeSyntaxError, fmt.Sprintf("using reserved keyword: %q", l.scanner.TokenText()), nil)
 	}
-	return l.scanner.TokenText(), nil
+	id := l.scanner.TokenText()
+	l.nextToken = l.scanner.Scan()
+	return strings.ToLower(id), nil
+}
+
+func (l *Lexer) EatKeyword(w string) error {
+	if l.nextToken != scanner.Ident || l.scanner.TokenText() != w {
+		return dberr.New(dberr.CodeSyntaxError, fmt.Sprintf("expected keyword %q but got %q", w, l.scanner.TokenText()), nil)
+	}
+	l.nextToken = l.scanner.Scan()
+	return nil
 }
