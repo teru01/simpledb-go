@@ -11,6 +11,7 @@ type Code string
 const (
 	CodeTransactionLockWaitAbort Code = "TRANSACTION_LOCK_WAIT_ABORT"
 	CodeBufferWaitAbort          Code = "BUFFER_WAIT_ABORT"
+	CodeSyntaxError              Code = "SYNTAX_ERROR"
 )
 
 type DBError struct {
