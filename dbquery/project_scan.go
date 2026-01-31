@@ -41,11 +41,11 @@ func (s *ProjectScan) GetString(ctx context.Context, fieldName string) (string, 
 	return s.scan.GetString(ctx, fieldName)
 }
 
-func (s *ProjectScan) GetVal(ctx context.Context, fieldName string) (dbconstant.Constant, error) {
+func (s *ProjectScan) GetValue(ctx context.Context, fieldName string) (dbconstant.Constant, error) {
 	if !s.scan.HasField(fieldName) {
 		return nil, fmt.Errorf("field %q not found", fieldName)
 	}
-	return s.scan.GetVal(ctx, fieldName)
+	return s.scan.GetValue(ctx, fieldName)
 }
 
 func (s *ProjectScan) HasField(fieldName string) bool {

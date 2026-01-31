@@ -9,11 +9,11 @@ import (
 )
 
 type Predicate struct {
-	terms []Term
+	terms []*Term
 }
 
-func NewPredicate(terms []Term) *Predicate {
-	return &Predicate{terms: terms}
+func NewPredicate(terms ...*Term) *Predicate {
+	return &Predicate{terms: terms[:]}
 }
 
 func (p *Predicate) ConjoinWith(other Predicate) {
@@ -35,7 +35,7 @@ func (p *Predicate) IsSatisfied(ctx context.Context, s Scan) (bool, error) {
 }
 
 func (p *Predicate) SelectSubPredicate(schema *dbrecord.Schema) *Predicate {
-	result := NewPredicate([]Term{})
+	result := NewPredicate()
 	for _, term := range p.terms {
 		if term.AppliesTo(schema) {
 			result.terms = append(result.terms, term)
@@ -48,7 +48,7 @@ func (p *Predicate) SelectSubPredicate(schema *dbrecord.Schema) *Predicate {
 }
 
 func (p *Predicate) JoinSubPredicate(schema1 *dbrecord.Schema, schema2 *dbrecord.Schema) *Predicate {
-	result := NewPredicate([]Term{})
+	result := NewPredicate()
 	newSchema := dbrecord.NewSchema()
 	newSchema.AddAll(schema1)
 	newSchema.AddAll(schema2)
@@ -70,7 +70,9 @@ func (p *Predicate) EquatesWithConstant(fieldName string) (dbconstant.Constant, 
 		if err != nil {
 			return nil, fmt.Errorf("equates with constant: %w", err)
 		}
-		return constant, nil
+		if constant != nil {
+			return constant, nil
+		}
 	}
 	return nil, fmt.Errorf("field %q not found", fieldName)
 }
@@ -81,7 +83,9 @@ func (p *Predicate) EquatesWithFieldName(fieldName string) (string, error) {
 		if err != nil {
 			return "", fmt.Errorf("equates with field name: %w", err)
 		}
-		return fieldName, nil
+		if fieldName != "" {
+			return fieldName, nil
+		}
 	}
 	return "", fmt.Errorf("field %q not found", fieldName)
 }

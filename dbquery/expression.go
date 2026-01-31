@@ -26,7 +26,7 @@ func (e *Expression) IsFieldName() bool {
 
 func (e *Expression) Evaluate(ctx context.Context, s Scan) (dbconstant.Constant, error) {
 	if e.IsFieldName() {
-		return s.GetVal(ctx, e.fieldName)
+		return s.GetValue(ctx, e.fieldName)
 	}
 	return e.value, nil
 }

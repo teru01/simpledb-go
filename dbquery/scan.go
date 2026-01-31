@@ -12,7 +12,7 @@ type Scan interface {
 	Next(ctx context.Context) (bool, error)
 	GetInt(ctx context.Context, fieldName string) (int, error)
 	GetString(ctx context.Context, fieldName string) (string, error)
-	GetVal(ctx context.Context, fieldName string) (dbconstant.Constant, error)
+	GetValue(ctx context.Context, fieldName string) (dbconstant.Constant, error)
 	HasField(fieldName string) bool
 	Close() error
 }

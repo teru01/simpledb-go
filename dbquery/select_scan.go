@@ -10,10 +10,10 @@ import (
 
 type SelectScan struct {
 	scan      Scan
-	predicate Predicate
+	predicate *Predicate
 }
 
-func NewSelectScan(scan Scan, predicate Predicate) *SelectScan {
+func NewSelectScan(scan Scan, predicate *Predicate) *SelectScan {
 	return &SelectScan{
 		scan:      scan,
 		predicate: predicate,
@@ -35,7 +35,7 @@ func (s *SelectScan) Next(ctx context.Context) (bool, error) {
 		}
 		result, err := s.predicate.IsSatisfied(ctx, s.scan)
 		if err != nil {
-			return false, fmt.Errorf("satisfication %q: %w", s.predicate.String, err)
+			return false, fmt.Errorf("satisfication %q: %w", s.predicate.String(), err)
 		}
 		if result {
 			return true, nil
@@ -52,8 +52,8 @@ func (s *SelectScan) GetString(ctx context.Context, fieldName string) (string, e
 	return s.scan.GetString(ctx, fieldName)
 }
 
-func (s *SelectScan) GetVal(ctx context.Context, fieldName string) (dbconstant.Constant, error) {
-	return s.scan.GetVal(ctx, fieldName)
+func (s *SelectScan) GetValue(ctx context.Context, fieldName string) (dbconstant.Constant, error) {
+	return s.scan.GetValue(ctx, fieldName)
 }
 
 func (s *SelectScan) HasField(fieldName string) bool {

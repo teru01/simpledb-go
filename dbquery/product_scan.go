@@ -71,12 +71,12 @@ func (s *ProductScan) GetString(ctx context.Context, fieldName string) (string, 
 	return "", fmt.Errorf("field %q not found", fieldName)
 }
 
-func (s *ProductScan) GetVal(ctx context.Context, fieldName string) (dbconstant.Constant, error) {
+func (s *ProductScan) GetValue(ctx context.Context, fieldName string) (dbconstant.Constant, error) {
 	if s.scan1.HasField(fieldName) {
-		return s.scan1.GetVal(ctx, fieldName)
+		return s.scan1.GetValue(ctx, fieldName)
 	}
 	if s.scan2.HasField(fieldName) {
-		return s.scan2.GetVal(ctx, fieldName)
+		return s.scan2.GetValue(ctx, fieldName)
 	}
 	return nil, fmt.Errorf("field %q not found", fieldName)
 }
