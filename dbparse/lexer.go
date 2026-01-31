@@ -43,7 +43,7 @@ func (l *Lexer) IsNextInt() bool {
 }
 
 func (l *Lexer) IsNextKeyword(w string) bool {
-	return l.nextToken == scanner.Ident && l.scanner.TokenText() == w
+	return l.nextToken == scanner.Ident && strings.ToLower(l.scanner.TokenText()) == w
 }
 
 func (l *Lexer) IsNextDelimiter(d rune) bool {
@@ -74,29 +74,31 @@ func (l *Lexer) EatStringConstant() (string, error) {
 	if l.nextToken != scanner.String {
 		return "", dberr.New(dberr.CodeSyntaxError, fmt.Sprintf("expected string but got %q", l.nextToken), nil)
 	}
-	str, err := strconv.Unquote(l.scanner.TokenText())
+	ss := strings.ToLower(l.scanner.TokenText())
+	str, err := strconv.Unquote(ss)
 	if err != nil {
-		return "", dberr.New(dberr.CodeSyntaxError, fmt.Sprintf("invalid string constant: %q", l.scanner.TokenText()), nil)
+		return "", dberr.New(dberr.CodeSyntaxError, fmt.Sprintf("invalid string constant: %q", ss), nil)
 	}
 	l.nextToken = l.scanner.Scan()
-	return strings.ToLower(str), nil
+	return str, nil
 }
 
 func (l *Lexer) EatIdentifier() (string, error) {
 	if l.nextToken != scanner.Ident {
 		return "", dberr.New(dberr.CodeSyntaxError, fmt.Sprintf("expected identifier but got %q", l.nextToken), nil)
 	}
-	if slices.Contains(l.keywords, l.scanner.TokenText()) {
-		return "", dberr.New(dberr.CodeSyntaxError, fmt.Sprintf("using reserved keyword: %q", l.scanner.TokenText()), nil)
+	id := strings.ToLower(l.scanner.TokenText())
+	if slices.Contains(l.keywords, id) {
+		return "", dberr.New(dberr.CodeSyntaxError, fmt.Sprintf("using reserved keyword: %q", id), nil)
 	}
-	id := l.scanner.TokenText()
 	l.nextToken = l.scanner.Scan()
-	return strings.ToLower(id), nil
+	return id, nil
 }
 
 func (l *Lexer) EatKeyword(w string) error {
-	if l.nextToken != scanner.Ident || l.scanner.TokenText() != w {
-		return dberr.New(dberr.CodeSyntaxError, fmt.Sprintf("expected keyword %q but got %q", w, l.scanner.TokenText()), nil)
+	text := strings.ToLower(l.scanner.TokenText())
+	if l.nextToken != scanner.Ident || text != w {
+		return dberr.New(dberr.CodeSyntaxError, fmt.Sprintf("expected keyword %q but got %q", w, text), nil)
 	}
 	l.nextToken = l.scanner.Scan()
 	return nil
