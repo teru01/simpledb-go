@@ -10,12 +10,12 @@ import (
 	"github.com/teru01/simpledb-go/dbtx"
 )
 
-type QueryPlanner struct {
+type BasicQueryPlanner struct {
 	metadataManager *dbmetadata.MetadataManager
 }
 
-func NewQueryPlanner(metadataManager *dbmetadata.MetadataManager) *QueryPlanner {
-	return &QueryPlanner{metadataManager: metadataManager}
+func NewQueryPlanner(metadataManager *dbmetadata.MetadataManager) *BasicQueryPlanner {
+	return &BasicQueryPlanner{metadataManager: metadataManager}
 }
 
 // create plan from query data
@@ -23,7 +23,7 @@ func NewQueryPlanner(metadataManager *dbmetadata.MetadataManager) *QueryPlanner 
 // step2: create product plan for each pair of plans
 // step3: create select plan
 // step4: create project plan for the final plan
-func (q *QueryPlanner) CreatePlan(ctx context.Context, queryData *dbparse.QueryData, tx *dbtx.Transaction) (dbquery.Plan, error) {
+func (q *BasicQueryPlanner) CreatePlan(ctx context.Context, queryData *dbparse.QueryData, tx *dbtx.Transaction) (dbquery.Plan, error) {
 	var plans []dbquery.Plan
 	for _, tableName := range queryData.Tables() {
 		viewDef, err := q.metadataManager.GetViewDef(ctx, tableName, tx)

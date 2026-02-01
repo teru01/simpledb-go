@@ -11,15 +11,15 @@ import (
 	"github.com/teru01/simpledb-go/dbtx"
 )
 
-type UpdatePlanner struct {
+type BasicUpdatePlanner struct {
 	metadataManager *dbmetadata.MetadataManager
 }
 
-func NewUpdatePlanner(metadataManager *dbmetadata.MetadataManager) *UpdatePlanner {
-	return &UpdatePlanner{metadataManager: metadataManager}
+func NewUpdatePlanner(metadataManager *dbmetadata.MetadataManager) *BasicUpdatePlanner {
+	return &BasicUpdatePlanner{metadataManager: metadataManager}
 }
 
-func (u *UpdatePlanner) ExecuteDelete(ctx context.Context, deleteData *dbparse.DeleteData, tx *dbtx.Transaction) (affectedRows int, err error) {
+func (u *BasicUpdatePlanner) ExecuteDelete(ctx context.Context, deleteData *dbparse.DeleteData, tx *dbtx.Transaction) (affectedRows int, err error) {
 	p, err := NewTablePlan(ctx, tx, deleteData.TableName(), u.metadataManager)
 	if err != nil {
 		return 0, fmt.Errorf("create table plan for %q: %w", deleteData.TableName(), err)
@@ -50,7 +50,7 @@ func (u *UpdatePlanner) ExecuteDelete(ctx context.Context, deleteData *dbparse.D
 	return affectedRows, nil
 }
 
-func (u *UpdatePlanner) ExecuteModify(ctx context.Context, modifyData *dbparse.ModifyData, tx *dbtx.Transaction) (affectedRows int, err error) {
+func (u *BasicUpdatePlanner) ExecuteModify(ctx context.Context, modifyData *dbparse.ModifyData, tx *dbtx.Transaction) (affectedRows int, err error) {
 	p, err := NewTablePlan(ctx, tx, modifyData.TableName(), u.metadataManager)
 	if err != nil {
 		return 0, fmt.Errorf("create table plan for %q: %w", modifyData.TableName(), err)
@@ -86,7 +86,7 @@ func (u *UpdatePlanner) ExecuteModify(ctx context.Context, modifyData *dbparse.M
 	return affectedRows, nil
 }
 
-func (u *UpdatePlanner) ExecuteInsert(ctx context.Context, insertData *dbparse.InsertData, tx *dbtx.Transaction) (affectedRows int, err error) {
+func (u *BasicUpdatePlanner) ExecuteInsert(ctx context.Context, insertData *dbparse.InsertData, tx *dbtx.Transaction) (affectedRows int, err error) {
 	p, err := NewTablePlan(ctx, tx, insertData.TableName(), u.metadataManager)
 	if err != nil {
 		return 0, fmt.Errorf("create table plan for %q: %w", insertData.TableName(), err)
@@ -111,4 +111,25 @@ func (u *UpdatePlanner) ExecuteInsert(ctx context.Context, insertData *dbparse.I
 		}
 	}
 	return 1, nil
+}
+
+func (u *BasicUpdatePlanner) ExecuteCreateTable(ctx context.Context, createTableData *dbparse.CreateTableData, tx *dbtx.Transaction) (int, error) {
+	if err := u.metadataManager.CreateTable(ctx, createTableData.TableName(), createTableData.Schema(), tx); err != nil {
+		return 0, fmt.Errorf("create table for %q: %w", createTableData.TableName(), err)
+	}
+	return 0, nil
+}
+
+func (u *BasicUpdatePlanner) ExecuteCreateIndex(ctx context.Context, createIndexData *dbparse.CreateIndexData, tx *dbtx.Transaction) (int, error) {
+	if err := u.metadataManager.CreateIndex(ctx, createIndexData.IndexName(), createIndexData.TableName(), createIndexData.FieldName(), tx); err != nil {
+		return 0, fmt.Errorf("create index for %q: %w", createIndexData.IndexName(), err)
+	}
+	return 0, nil
+}
+
+func (u *BasicUpdatePlanner) ExecuteCreateView(ctx context.Context, createViewData *dbparse.CreateViewData, tx *dbtx.Transaction) (int, error) {
+	if err := u.metadataManager.CreateView(ctx, createViewData.ViewName(), createViewData.Query().String(), tx); err != nil {
+		return 0, fmt.Errorf("create view for %q: %w", createViewData.ViewName(), err)
+	}
+	return 0, nil
 }
