@@ -35,6 +35,14 @@ func (p *Predicate) IsSatisfied(ctx context.Context, s Scan) (bool, error) {
 	return true, nil
 }
 
+func (p *Predicate) ReductionFactor(plan Plan) int {
+	factor := 1
+	for _, term := range p.terms {
+		factor *= term.ReductionFactor(plan)
+	}
+	return factor
+}
+
 func (p *Predicate) SelectSubPredicate(schema *dbrecord.Schema) *Predicate {
 	result := NewPredicate()
 	for _, term := range p.terms {
@@ -65,30 +73,24 @@ func (p *Predicate) JoinSubPredicate(schema1 *dbrecord.Schema, schema2 *dbrecord
 	return result
 }
 
-func (p *Predicate) EquatesWithConstant(fieldName string) (dbconstant.Constant, error) {
+func (p *Predicate) EquatesWithConstant(fieldName string) dbconstant.Constant {
 	for _, term := range p.terms {
-		constant, err := term.EquatesWithConstant(fieldName)
-		if err != nil {
-			return nil, fmt.Errorf("equates with constant: %w", err)
-		}
+		constant := term.EquatesWithConstant(fieldName)
 		if constant != nil {
-			return constant, nil
+			return constant
 		}
 	}
-	return nil, fmt.Errorf("field %q not found", fieldName)
+	return nil
 }
 
-func (p *Predicate) EquatesWithFieldName(fieldName string) (string, error) {
+func (p *Predicate) EquatesWithFieldName(fieldName string) string {
 	for _, term := range p.terms {
-		fieldName, err := term.EquatesWithFieldName(fieldName)
-		if err != nil {
-			return "", fmt.Errorf("equates with field name: %w", err)
-		}
+		fieldName := term.EquatesWithFieldName(fieldName)
 		if fieldName != "" {
-			return fieldName, nil
+			return fieldName
 		}
 	}
-	return "", fmt.Errorf("field %q not found", fieldName)
+	return ""
 }
 
 func (p *Predicate) String() string {

@@ -3,6 +3,7 @@ package dbquery
 import (
 	"context"
 	"fmt"
+	"math"
 
 	"github.com/teru01/simpledb-go/dbconstant"
 	"github.com/teru01/simpledb-go/dbrecord"
@@ -33,24 +34,42 @@ func (t *Term) AppliesTo(schema *dbrecord.Schema) bool {
 	return t.lhs.AppliesTo(schema) && t.rhs.AppliesTo(schema)
 }
 
-func (t *Term) EquatesWithConstant(fieldName string) (dbconstant.Constant, error) {
-	if t.lhs.IsFieldName() && t.lhs.AsFieldName() == fieldName && !t.rhs.IsFieldName() {
-		return t.rhs.AsConstant(), nil
+func (t *Term) ReductionFactor(plan Plan) int {
+	if t.lhs.IsFieldName() && t.rhs.IsFieldName() {
+		return int(math.Max(float64(plan.DistinctValues(t.lhs.AsFieldName())), float64(plan.DistinctValues(t.rhs.AsFieldName()))))
 	}
-	if t.rhs.IsFieldName() && t.rhs.AsFieldName() == fieldName && !t.lhs.IsFieldName() {
-		return t.lhs.AsConstant(), nil
+	if t.lhs.IsFieldName() {
+		return plan.DistinctValues(t.lhs.AsFieldName())
 	}
-	return nil, fmt.Errorf("field %q not found", fieldName)
+	if t.rhs.IsFieldName() {
+		return plan.DistinctValues(t.rhs.AsFieldName())
+	}
+	if t.lhs.AsConstant().Equals(t.rhs.AsConstant()) {
+		return 1
+	}
+	return math.MaxInt
 }
 
-func (t *Term) EquatesWithFieldName(fieldName string) (string, error) {
+// 右辺か左辺がfieldNameと一致するときもう片方が定数ならそれを返す.それ以外はnil
+func (t *Term) EquatesWithConstant(fieldName string) dbconstant.Constant {
+	if t.lhs.IsFieldName() && t.lhs.AsFieldName() == fieldName && !t.rhs.IsFieldName() {
+		return t.rhs.AsConstant()
+	}
+	if t.rhs.IsFieldName() && t.rhs.AsFieldName() == fieldName && !t.lhs.IsFieldName() {
+		return t.lhs.AsConstant()
+	}
+	return nil
+}
+
+// 右辺か左辺がfieldNameと一致するときもう片方がfield nameならそれを返す.それ以外は空文字
+func (t *Term) EquatesWithFieldName(fieldName string) string {
 	if t.lhs.IsFieldName() && t.lhs.AsFieldName() == fieldName && t.rhs.IsFieldName() {
-		return t.rhs.AsFieldName(), nil
+		return t.rhs.AsFieldName()
 	}
 	if t.rhs.IsFieldName() && t.rhs.AsFieldName() == fieldName && t.lhs.IsFieldName() {
-		return t.lhs.AsFieldName(), nil
+		return t.lhs.AsFieldName()
 	}
-	return "", fmt.Errorf("field %q not found", fieldName)
+	return ""
 }
 
 func (t *Term) String() string {
