@@ -55,6 +55,7 @@ func (v *ViewManager) CreateView(ctx context.Context, viewName string, viewDef s
 	return nil
 }
 
+// viewが見つからない時は空文字を返す
 func (v *ViewManager) GetViewDef(ctx context.Context, viewName string, tx *dbtx.Transaction) (string, error) {
 	layout, err := v.tableManager.GetLayout(ctx, ViewCatalogTableName, tx)
 	if err != nil {

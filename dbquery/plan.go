@@ -7,7 +7,7 @@ import (
 )
 
 type Plan interface {
-	Open(ctx context.Context) Scan
+	Open(ctx context.Context) (Scan, error)
 	BlockAccessed() int
 	RecordsOutput() int
 	DistinctValues(fieldName string) int

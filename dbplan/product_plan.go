@@ -2,6 +2,7 @@ package dbplan
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/teru01/simpledb-go/dbquery"
 	"github.com/teru01/simpledb-go/dbrecord"
@@ -20,8 +21,16 @@ func NewProductPlan(plan1 dbquery.Plan, plan2 dbquery.Plan) *ProductPlan {
 	return &ProductPlan{plan1: plan1, plan2: plan2, schema: s}
 }
 
-func (p *ProductPlan) Open(ctx context.Context) dbquery.Scan {
-	return dbquery.NewProductScan(p.plan1.Open(ctx), p.plan2.Open(ctx))
+func (p *ProductPlan) Open(ctx context.Context) (dbquery.Scan, error) {
+	scan1, err := p.plan1.Open(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("open plan1: %w", err)
+	}
+	scan2, err := p.plan2.Open(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("open plan2: %w", err)
+	}
+	return dbquery.NewProductScan(scan1, scan2), nil
 }
 
 func (p *ProductPlan) BlockAccessed() int {

@@ -2,6 +2,7 @@ package dbplan
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/teru01/simpledb-go/dbquery"
 	"github.com/teru01/simpledb-go/dbrecord"
@@ -20,8 +21,12 @@ func NewProjectPlan(child dbquery.Plan, fieldList []string) *ProjectPlan {
 	return &ProjectPlan{child: child, schema: s}
 }
 
-func (p *ProjectPlan) Open(ctx context.Context) dbquery.Scan {
-	return dbquery.NewProjectScan(p.child.Open(ctx), p.schema.Fields())
+func (p *ProjectPlan) Open(ctx context.Context) (dbquery.Scan, error) {
+	scan, err := p.child.Open(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("open child: %w", err)
+	}
+	return dbquery.NewProjectScan(scan, p.schema.Fields()), nil
 }
 
 func (p *ProjectPlan) BlockAccessed() int {

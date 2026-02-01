@@ -2,6 +2,7 @@ package dbplan
 
 import (
 	"context"
+	"fmt"
 	"math"
 
 	"github.com/teru01/simpledb-go/dbquery"
@@ -29,8 +30,12 @@ func (s *SelectPlan) DistinctValues(fieldName string) int {
 	return s.child.DistinctValues(fieldName)
 }
 
-func (s *SelectPlan) Open(ctx context.Context) dbquery.Scan {
-	return dbquery.NewSelectScan(s.child.Open(ctx), s.predicate)
+func (s *SelectPlan) Open(ctx context.Context) (dbquery.Scan, error) {
+	scan, err := s.child.Open(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("open child: %w", err)
+	}
+	return dbquery.NewSelectScan(scan, s.predicate), nil
 }
 
 func (s *SelectPlan) BlockAccessed() int {
