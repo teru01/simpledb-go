@@ -74,10 +74,9 @@ func (l *Lexer) EatStringConstant() (string, error) {
 	if l.nextToken != scanner.String {
 		return "", dberr.New(dberr.CodeSyntaxError, fmt.Sprintf("expected string but got %q", l.nextToken), nil)
 	}
-	ss := strings.ToLower(l.scanner.TokenText())
-	str, err := strconv.Unquote(ss)
+	str, err := strconv.Unquote(l.scanner.TokenText())
 	if err != nil {
-		return "", dberr.New(dberr.CodeSyntaxError, fmt.Sprintf("invalid string constant: %q", ss), nil)
+		return "", dberr.New(dberr.CodeSyntaxError, fmt.Sprintf("invalid string constant: %q", str), nil)
 	}
 	l.nextToken = l.scanner.Scan()
 	return str, nil
