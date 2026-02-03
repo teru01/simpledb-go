@@ -26,7 +26,7 @@ func setupUpdatePlannerTest(t *testing.T) (*dbmetadata.MetadataManager, *dbtx.Tr
 		t.Fatalf("failed to open temp dir: %v", err)
 	}
 
-	fm, err := dbfile.NewFileManager(dirFile, 400)
+	fm, err := dbfile.NewFileManager(dirFile, 4000)
 	if err != nil {
 		t.Fatalf("failed to create file manager: %v", err)
 	}
@@ -491,8 +491,18 @@ func TestUpdatePlannerExecuteCreateIndex(t *testing.T) {
 		t.Fatalf("failed to get index info: %v", err)
 	}
 
-	if _, ok := indexInfos["idx_name"]; !ok {
-		t.Errorf("expected index 'idx_name' to exist")
+	indexInfo, ok := indexInfos["name"]
+	if !ok {
+		t.Errorf("expected index 'name' to exist")
+	}
+	if indexInfo.IndexName() != "idx_name" {
+		t.Errorf("expected index name 'idx_name', got %q", indexInfo.IndexName())
+	}
+	if indexInfo.TableName() != "users" {
+		t.Errorf("expected table name 'users', got %q", indexInfo.TableName())
+	}
+	if indexInfo.FieldName() != "name" {
+		t.Errorf("expected field name 'name', got %q", indexInfo.FieldName())
 	}
 }
 

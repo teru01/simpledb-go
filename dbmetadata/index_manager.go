@@ -119,7 +119,7 @@ func (i *IndexManager) GetIndexInfo(ctx context.Context, tableName string, tx *d
 			if err != nil {
 				return nil, fmt.Errorf("get layout for %q: %w", tableName, err)
 			}
-			indexInfo, err := NewIndexInfo(ctx, indexName, fieldName, tableLayout.Schema(), tx, statInfo, targetTableLayout)
+			indexInfo, err := NewIndexInfo(ctx, indexName, fieldName, tableName, tableLayout.Schema(), tx, statInfo, targetTableLayout)
 			if err != nil {
 				return nil, fmt.Errorf("new index info for %q: %w", indexName, err)
 			}
@@ -129,10 +129,11 @@ func (i *IndexManager) GetIndexInfo(ctx context.Context, tableName string, tx *d
 	return indexInfos, nil
 }
 
-func NewIndexInfo(ctx context.Context, indexName string, fieldName string, schema *dbrecord.Schema, tx *dbtx.Transaction, statInfo *StatInfo, tableLayout *dbrecord.Layout) (*IndexInfo, error) {
+func NewIndexInfo(ctx context.Context, indexName string, fieldName string, tableName string, schema *dbrecord.Schema, tx *dbtx.Transaction, statInfo *StatInfo, tableLayout *dbrecord.Layout) (*IndexInfo, error) {
 	ii := &IndexInfo{
 		indexName:   indexName,
 		fieldName:   fieldName,
+		tableName:   tableName,
 		tableSchema: schema,
 		tx:          tx,
 		statInfo:    statInfo,
@@ -169,4 +170,16 @@ func (i *IndexInfo) createIndexLayout() *dbrecord.Layout {
 		schema.AddStringField("data_value", i.tableLayout.Schema().Length(i.fieldName))
 	}
 	return dbrecord.NewLayout(schema)
+}
+
+func (i *IndexInfo) IndexName() string {
+	return i.indexName
+}
+
+func (i *IndexInfo) TableName() string {
+	return i.tableName
+}
+
+func (i *IndexInfo) FieldName() string {
+	return i.fieldName
 }
