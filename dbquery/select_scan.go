@@ -21,7 +21,7 @@ func NewSelectScan(scan Scan, predicate *Predicate) *SelectScan {
 }
 
 func (s *SelectScan) SetStateToBeforeFirst(ctx context.Context) error {
-	return s.SetStateToBeforeFirst(ctx)
+	return s.scan.SetStateToBeforeFirst(ctx)
 }
 
 func (s *SelectScan) Next(ctx context.Context) (bool, error) {
