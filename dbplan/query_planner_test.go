@@ -26,7 +26,7 @@ func setupQueryPlannerTest(t *testing.T) (*dbmetadata.MetadataManager, *dbtx.Tra
 		t.Fatalf("failed to open temp dir: %v", err)
 	}
 
-	fm, err := dbfile.NewFileManager(dirFile, 400)
+	fm, err := dbfile.NewFileManager(dirFile, 4000)
 	if err != nil {
 		t.Fatalf("failed to create file manager: %v", err)
 	}
@@ -143,7 +143,9 @@ func TestQueryPlannerCreatePlanSingleTable(t *testing.T) {
 		t.Fatalf("failed to open plan: %v", err)
 	}
 	defer scan.Close()
-
+	if err := scan.SetStateToBeforeFirst(ctx); err != nil {
+		t.Fatalf("failed to set state to before first: %v", err)
+	}
 	count := 0
 	for {
 		ok, err := scan.Next(ctx)
@@ -235,7 +237,9 @@ func TestQueryPlannerCreatePlanWithWhere(t *testing.T) {
 		t.Fatalf("failed to open plan: %v", err)
 	}
 	defer scan.Close()
-
+	if err := scan.SetStateToBeforeFirst(ctx); err != nil {
+		t.Fatalf("failed to set state to before first: %v", err)
+	}
 	count := 0
 	for {
 		ok, err := scan.Next(ctx)
@@ -377,6 +381,9 @@ func TestQueryPlannerCreatePlanMultipleTables(t *testing.T) {
 		t.Fatalf("failed to open plan: %v", err)
 	}
 	defer scan.Close()
+	if err := scan.SetStateToBeforeFirst(ctx); err != nil {
+		t.Fatalf("failed to set state to before first: %v", err)
+	}
 
 	count := 0
 	for {
@@ -474,7 +481,9 @@ func TestQueryPlannerCreatePlanWithView(t *testing.T) {
 		t.Fatalf("failed to open plan: %v", err)
 	}
 	defer scan.Close()
-
+	if err := scan.SetStateToBeforeFirst(ctx); err != nil {
+		t.Fatalf("failed to set state to before first: %v", err)
+	}
 	count := 0
 	for {
 		ok, err := scan.Next(ctx)
