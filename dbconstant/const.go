@@ -1,6 +1,7 @@
 package dbconstant
 
 import (
+	"hash/fnv"
 	"strconv"
 	"strings"
 )
@@ -10,6 +11,7 @@ type Constant interface {
 	String() string
 	Compare(other Constant) int
 	Equals(other Constant) bool
+	HashCode() int
 }
 
 type IntConstant struct {
@@ -40,6 +42,12 @@ func (c *IntConstant) Equals(other Constant) bool {
 	return c.Compare(other) == 0
 }
 
+func (c *IntConstant) HashCode() int {
+	h := fnv.New64a()
+	h.Write([]byte(c.String()))
+	return int(h.Sum64())
+}
+
 type StringConstant struct {
 	value string
 }
@@ -66,4 +74,10 @@ func (c *StringConstant) Compare(other Constant) int {
 
 func (c *StringConstant) Equals(other Constant) bool {
 	return c.Compare(other) == 0
+}
+
+func (c *StringConstant) HashCode() int {
+	h := fnv.New64a()
+	h.Write([]byte(c.String()))
+	return int(h.Sum64())
 }

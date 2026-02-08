@@ -11,6 +11,10 @@ import (
 
 const (
 	IndexCatalogTableName = "index_catalog"
+
+	IndexFieldID        = "id"
+	IndexFieldBlock     = "block"
+	IndexFieldDataValue = "data_value"
 )
 
 type IndexManager struct {
@@ -162,12 +166,12 @@ func (i *IndexInfo) DistinctValues(fieldName string) int {
 
 func (i *IndexInfo) createIndexLayout() *dbrecord.Layout {
 	schema := dbrecord.NewSchema()
-	schema.AddIntField("block")
-	schema.AddIntField("id")
+	schema.AddIntField(IndexFieldBlock)
+	schema.AddIntField(IndexFieldID)
 	if i.tableLayout.Schema().FieldType(i.fieldName) == dbrecord.FieldTypeInt {
-		schema.AddIntField("data_value")
+		schema.AddIntField(IndexFieldDataValue)
 	} else {
-		schema.AddStringField("data_value", i.tableLayout.Schema().Length(i.fieldName))
+		schema.AddStringField(IndexFieldDataValue, i.tableLayout.Schema().Length(i.fieldName))
 	}
 	return dbrecord.NewLayout(schema)
 }
