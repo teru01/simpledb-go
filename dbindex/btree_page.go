@@ -12,6 +12,9 @@ import (
 	"github.com/teru01/simpledb-go/dbtx"
 )
 
+// 単一ブロック内でのBTreeページ
+// ページ構造: flag + レコード数 + スロット*N
+// flag: ディレクトリの時、階層レベル。leafのすぐ上が1. リーフの時、オーバーフローブロックのブロック番号。なければ-1
 type BTreePage struct {
 	tx           *dbtx.Transaction
 	layout       *dbrecord.Layout
@@ -73,6 +76,8 @@ func (b *BTreePage) IsFull(ctx context.Context) (bool, error) {
 	return b.slotPosition(n+1) >= b.tx.BlockSize(), nil
 }
 
+// splitPosでブロックを2つに分割し、新たなblockにflagをセットする
+// 新たなブロックIDを返す
 func (b *BTreePage) Split(ctx context.Context, splitPos int, flag int) (dbfile.BlockID, error) {
 	newBlk, err := b.AppendNew(ctx, flag)
 	if err != nil {
