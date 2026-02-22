@@ -67,6 +67,9 @@ func (h *HashIndex) Next(ctx context.Context) (bool, error) {
 }
 
 func (h *HashIndex) Close(ctx context.Context) error {
+	if h.state.ts == nil {
+		return nil
+	}
 	return h.state.ts.Close(ctx)
 }
 

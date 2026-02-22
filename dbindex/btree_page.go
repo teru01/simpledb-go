@@ -180,9 +180,9 @@ func (b *BTreePage) GetDataRID(ctx context.Context, slot int) (*dbrecord.RID, er
 	if err != nil {
 		return nil, fmt.Errorf("get block: %w", err)
 	}
-	id, err := b.getInt(ctx, slot, dbname.IndexFieldDataValue)
+	id, err := b.getInt(ctx, slot, dbname.IndexFieldID)
 	if err != nil {
-		return nil, fmt.Errorf("get data value: %w", err)
+		return nil, fmt.Errorf("get id: %w", err)
 	}
 	return dbrecord.NewRID(blk, id), nil
 }
@@ -270,9 +270,9 @@ func (b *BTreePage) setString(ctx context.Context, slot int, fieldName string, v
 func (b *BTreePage) setValue(ctx context.Context, slot int, fieldName string, value dbconstant.Constant) error {
 	switch b.layout.Schema().FieldType(fieldName) {
 	case dbrecord.FieldTypeInt:
-		b.setInt(ctx, b.fieldPosition(slot, fieldName), fieldName, value.AsRaw().(int))
+		b.setInt(ctx, slot, fieldName, value.AsRaw().(int))
 	case dbrecord.FieldTypeString:
-		b.setString(ctx, b.fieldPosition(slot, fieldName), fieldName, value.AsRaw().(string))
+		b.setString(ctx, slot, fieldName, value.AsRaw().(string))
 	default:
 		return fmt.Errorf("invalid field type %q", fieldName)
 	}
