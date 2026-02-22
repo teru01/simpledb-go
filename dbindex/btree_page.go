@@ -14,7 +14,7 @@ import (
 
 // 単一ブロック内でのBTreeページ
 // ページ構造: flag + レコード数 + スロット*N
-// flag: ディレクトリの時、階層レベル。leafのすぐ上が1. リーフの時、オーバーフローブロックのブロック番号。なければ-1
+// flag: ディレクトリの時、階層レベル。leafのすぐ上が0. リーフの時、オーバーフローブロックのブロック番号。なければ-1
 type BTreePage struct {
 	tx           *dbtx.Transaction
 	layout       *dbrecord.Layout

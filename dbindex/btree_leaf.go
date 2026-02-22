@@ -61,6 +61,8 @@ func (b *BTreeLeaf) Next(ctx context.Context) (bool, error) {
 	} else if c.Equals(b.searchKey) {
 		return true, nil
 	} else {
+		// ブロックの端まで行ってないが、検索キーと一致しないとき
+		// AAABCFG..みたいな時にBに到達したケース. Aのoverflowが存在する可能性があるため
 		return b.tryOverflow(ctx)
 	}
 }
@@ -116,18 +118,6 @@ func (b *BTreeLeaf) tryOverflow(ctx context.Context) (bool, error) {
 	b.contents = bt
 	b.currentSlot = 0
 	return true, nil
-}
-
-type DirEntry struct {
-	value     dbconstant.Constant
-	blkNumber int
-}
-
-func NewDirEntry(value dbconstant.Constant, blkNumber int) *DirEntry {
-	return &DirEntry{
-		value:     value,
-		blkNumber: blkNumber,
-	}
 }
 
 func (b *BTreeLeaf) Insert(ctx context.Context, dataRID *dbrecord.RID) (*DirEntry, error) {
