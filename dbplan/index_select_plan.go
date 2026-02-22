@@ -16,8 +16,9 @@ type IndexSelectPlan struct {
 	value     dbconstant.Constant
 }
 
-func NewIndexSelectPlan(indexInfo dbmetadata.IndexInfo, value dbconstant.Constant) *IndexSelectPlan {
+func NewIndexSelectPlan(plan dbquery.Plan, indexInfo dbmetadata.IndexInfo, value dbconstant.Constant) *IndexSelectPlan {
 	return &IndexSelectPlan{
+		plan:      plan,
 		indexInfo: indexInfo,
 		value:     value,
 	}

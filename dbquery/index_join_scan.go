@@ -18,7 +18,11 @@ type IndexJoinScan struct {
 }
 
 func NewIndexJoinScan(ctx context.Context, lhs Scan, index dbindex.Index, joinField string, rhs *dbrecord.TableScan) (*IndexJoinScan, error) {
-	return &IndexJoinScan{lhs: lhs, index: index, joinField: joinField, rhs: rhs}, nil
+	s := &IndexJoinScan{lhs: lhs, index: index, joinField: joinField, rhs: rhs}
+	if err := s.SetStateToBeforeFirst(ctx); err != nil {
+		return nil, fmt.Errorf("set state to before first: %w", err)
+	}
+	return s, nil
 }
 
 func (s *IndexJoinScan) SetStateToBeforeFirst(ctx context.Context) error {
