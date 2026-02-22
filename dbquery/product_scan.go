@@ -85,11 +85,11 @@ func (s *ProductScan) HasField(fieldName string) bool {
 	return s.scan1.HasField(fieldName) || s.scan2.HasField(fieldName)
 }
 
-func (s *ProductScan) Close() error {
-	if err := s.scan1.Close(); err != nil {
+func (s *ProductScan) Close(ctx context.Context) error {
+	if err := s.scan1.Close(ctx); err != nil {
 		return fmt.Errorf("close scan1: %w", err)
 	}
-	if err := s.scan2.Close(); err != nil {
+	if err := s.scan2.Close(ctx); err != nil {
 		return fmt.Errorf("close scan2: %w", err)
 	}
 	return nil

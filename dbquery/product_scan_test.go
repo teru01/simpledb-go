@@ -126,7 +126,7 @@ func TestProductScanCartesianProduct(t *testing.T) {
 	if err := productScan.SetStateToBeforeFirst(ctx); err != nil {
 		t.Fatalf("failed to set state to before first: %v", err)
 	}
-	defer productScan.Close()
+	defer productScan.Close(ctx)
 
 	// Cartesian product should have 2 * 3 = 6 records
 	count := 0
@@ -188,7 +188,7 @@ func TestProductScanHasField(t *testing.T) {
 	}
 
 	productScan := dbquery.NewProductScan(ts1, ts2)
-	defer productScan.Close()
+	defer productScan.Close(ctx)
 
 	// Should have fields from both tables
 	if !productScan.HasField("user_id") {
@@ -256,7 +256,7 @@ func TestProductScanGetValue(t *testing.T) {
 	if err := productScan.SetStateToBeforeFirst(ctx); err != nil {
 		t.Fatalf("failed to set state to before first: %v", err)
 	}
-	defer productScan.Close()
+	defer productScan.Close(ctx)
 
 	ok, err := productScan.Next(ctx)
 	if err != nil {
@@ -317,7 +317,7 @@ func TestProductScanEmptyTable(t *testing.T) {
 	if err := productScan.SetStateToBeforeFirst(ctx); err != nil {
 		t.Fatalf("failed to set state to before first: %v", err)
 	}
-	defer productScan.Close()
+	defer productScan.Close(ctx)
 
 	// Cartesian product with empty table should yield no results
 	ok, err := productScan.Next(ctx)

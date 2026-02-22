@@ -98,7 +98,7 @@ func TestStatManagerGetStatInfo(t *testing.T) {
 		}
 	}
 
-	if err := ts.Close(); err != nil {
+	if err := ts.Close(ctx); err != nil {
 		t.Fatalf("failed to close table scan: %v", err)
 	}
 
@@ -155,7 +155,7 @@ func TestStatManagerMultipleTables(t *testing.T) {
 			t.Fatalf("failed to set id: %v", err)
 		}
 	}
-	if err := ts1.Close(); err != nil {
+	if err := ts1.Close(ctx); err != nil {
 		t.Fatalf("failed to close table scan: %v", err)
 	}
 
@@ -187,7 +187,7 @@ func TestStatManagerMultipleTables(t *testing.T) {
 			t.Fatalf("failed to set value: %v", err)
 		}
 	}
-	if err := ts2.Close(); err != nil {
+	if err := ts2.Close(ctx); err != nil {
 		t.Fatalf("failed to close table scan: %v", err)
 	}
 
@@ -297,7 +297,7 @@ func TestStatManagerCalcDistinctValues(t *testing.T) {
 		}
 	}
 
-	if err := ts.Close(); err != nil {
+	if err := ts.Close(ctx); err != nil {
 		t.Fatalf("failed to close table scan: %v", err)
 	}
 

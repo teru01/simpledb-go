@@ -14,7 +14,7 @@ type Scan interface {
 	GetString(ctx context.Context, fieldName string) (string, error)
 	GetValue(ctx context.Context, fieldName string) (dbconstant.Constant, error)
 	HasField(fieldName string) bool
-	Close() error
+	Close(ctx context.Context) error
 }
 
 type UpdateScan interface {

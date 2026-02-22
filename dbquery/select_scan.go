@@ -60,8 +60,8 @@ func (s *SelectScan) HasField(fieldName string) bool {
 	return s.scan.HasField(fieldName)
 }
 
-func (s *SelectScan) Close() error {
-	return s.scan.Close()
+func (s *SelectScan) Close(ctx context.Context) error {
+	return s.scan.Close(ctx)
 }
 
 func (s *SelectScan) SetInt(ctx context.Context, fieldName string, value int) error {

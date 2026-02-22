@@ -70,7 +70,7 @@ func (i *IndexManager) CreateIndex(ctx context.Context, indexName string, tableN
 	if err := ts.SetString(ctx, "fieldname", fieldName); err != nil {
 		return fmt.Errorf("set fieldname for %q: %w", IndexCatalogTableName, err)
 	}
-	if err := ts.Close(); err != nil {
+	if err := ts.Close(ctx); err != nil {
 		return fmt.Errorf("close table scan for %q: %w", IndexCatalogTableName, err)
 	}
 	return nil
@@ -83,7 +83,7 @@ func (i *IndexManager) GetIndexInfo(ctx context.Context, tableName string, tx *d
 		return nil, fmt.Errorf("create table scan for %q: %w", IndexCatalogTableName, err)
 	}
 	defer func() {
-		if closeErr := ts.Close(); closeErr != nil {
+		if closeErr := ts.Close(ctx); closeErr != nil {
 			err = errors.Join(err, fmt.Errorf("close table scan for %q: %w", IndexCatalogTableName, closeErr))
 		}
 	}()

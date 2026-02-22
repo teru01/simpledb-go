@@ -56,7 +56,7 @@ func (b *BTreePage) FindSlotBefore(ctx context.Context, searchKey dbconstant.Con
 	return slot - 1, nil
 }
 
-func (b *BTreePage) Close() error {
+func (b *BTreePage) Close(ctx context.Context) error {
 	if b.currentBlock != nil {
 		if err := b.tx.UnPin(*b.currentBlock); err != nil {
 			return fmt.Errorf("close: %w", err)
@@ -93,7 +93,7 @@ func (b *BTreePage) Split(ctx context.Context, splitPos int, flag int) (dbfile.B
 	if err := newPage.SetFlag(ctx, flag); err != nil {
 		return dbfile.BlockID{}, fmt.Errorf("set flag: %w", err)
 	}
-	if err := newPage.Close(); err != nil {
+	if err := newPage.Close(ctx); err != nil {
 		return dbfile.BlockID{}, fmt.Errorf("close: %w", err)
 	}
 	return newBlk, nil

@@ -102,7 +102,7 @@ func TestUpdatePlannerExecuteInsert(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create table scan: %v", err)
 	}
-	defer ts.Close()
+	defer ts.Close(ctx)
 
 	ok, err := ts.Next(ctx)
 	if err != nil {
@@ -188,7 +188,7 @@ func TestUpdatePlannerExecuteDelete(t *testing.T) {
 			t.Fatalf("failed to set age: %v", err)
 		}
 	}
-	ts.Close()
+	ts.Close(ctx)
 
 	// Execute delete
 	up := dbplan.NewUpdatePlanner(mm)
@@ -214,7 +214,7 @@ func TestUpdatePlannerExecuteDelete(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create table scan: %v", err)
 	}
-	defer ts2.Close()
+	defer ts2.Close(ctx)
 
 	remainingCount := 0
 	for {
@@ -284,7 +284,7 @@ func TestUpdatePlannerExecuteModify(t *testing.T) {
 			t.Fatalf("failed to set age: %v", err)
 		}
 	}
-	ts.Close()
+	ts.Close(ctx)
 
 	// Execute modify
 	up := dbplan.NewUpdatePlanner(mm)
@@ -310,7 +310,7 @@ func TestUpdatePlannerExecuteModify(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create table scan: %v", err)
 	}
-	defer ts2.Close()
+	defer ts2.Close(ctx)
 
 	expectedAges := map[int]int{
 		1: 99, // Alice: was 25, now 99
@@ -542,7 +542,7 @@ func TestUpdatePlannerExecuteDeleteAll(t *testing.T) {
 			t.Fatalf("failed to set name: %v", err)
 		}
 	}
-	ts.Close()
+	ts.Close(ctx)
 
 	// Execute delete without WHERE (delete all)
 	up := dbplan.NewUpdatePlanner(mm)
@@ -567,7 +567,7 @@ func TestUpdatePlannerExecuteDeleteAll(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create table scan: %v", err)
 	}
-	defer ts2.Close()
+	defer ts2.Close(ctx)
 
 	ok, err := ts2.Next(ctx)
 	if err != nil {
@@ -614,7 +614,7 @@ func TestUpdatePlannerExecuteModifyAll(t *testing.T) {
 			t.Fatalf("failed to set status: %v", err)
 		}
 	}
-	ts.Close()
+	ts.Close(ctx)
 
 	// Execute modify without WHERE (update all)
 	up := dbplan.NewUpdatePlanner(mm)
@@ -639,7 +639,7 @@ func TestUpdatePlannerExecuteModifyAll(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create table scan: %v", err)
 	}
-	defer ts2.Close()
+	defer ts2.Close(ctx)
 
 	for {
 		ok, err := ts2.Next(ctx)

@@ -31,7 +31,7 @@ func NewBTreeDir(ctx context.Context, tx *dbtx.Transaction, blk dbfile.BlockID, 
 }
 
 func (b *BTreeDir) Close(ctx context.Context) error {
-	return b.contents.Close()
+	return b.contents.Close(ctx)
 }
 
 // 再起的に検索してleafのblock numberを返す

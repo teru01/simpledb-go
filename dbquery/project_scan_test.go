@@ -99,7 +99,7 @@ func TestProjectScanProjectFields(t *testing.T) {
 
 	// Project only id and name fields
 	projectScan := dbquery.NewProjectScan(ts, []string{"id", "name"})
-	defer projectScan.Close()
+	defer projectScan.Close(ctx)
 
 	count := 0
 	for {
@@ -149,7 +149,7 @@ func TestProjectScanHasField(t *testing.T) {
 
 	// Project only id and name fields
 	projectScan := dbquery.NewProjectScan(ts, []string{"id", "name"})
-	defer projectScan.Close()
+	defer projectScan.Close(ctx)
 
 	// HasField should return true for projected fields
 	if !projectScan.HasField("id") {
@@ -194,7 +194,7 @@ func TestProjectScanGetValue(t *testing.T) {
 	}
 
 	projectScan := dbquery.NewProjectScan(ts, []string{"id", "name"})
-	defer projectScan.Close()
+	defer projectScan.Close(ctx)
 
 	ok, err := projectScan.Next(ctx)
 	if err != nil {
@@ -226,7 +226,7 @@ func TestProjectScanEmpty(t *testing.T) {
 
 	// No records inserted
 	projectScan := dbquery.NewProjectScan(ts, []string{"id"})
-	defer projectScan.Close()
+	defer projectScan.Close(ctx)
 
 	ok, err := projectScan.Next(ctx)
 	if err != nil {

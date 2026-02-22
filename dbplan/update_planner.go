@@ -29,7 +29,7 @@ func (u *BasicUpdatePlanner) ExecuteDelete(ctx context.Context, deleteData *dbpa
 		return 0, fmt.Errorf("open table plan for %q: %w", deleteData.TableName(), err)
 	}
 	defer func() {
-		if closeErr := scan.Close(); closeErr != nil {
+		if closeErr := scan.Close(ctx); closeErr != nil {
 			err = errors.Join(err, closeErr)
 		}
 	}()
@@ -60,7 +60,7 @@ func (u *BasicUpdatePlanner) ExecuteModify(ctx context.Context, modifyData *dbpa
 		return 0, fmt.Errorf("open table plan for %q: %w", modifyData.TableName(), err)
 	}
 	defer func() {
-		if closeErr := scan.Close(); closeErr != nil {
+		if closeErr := scan.Close(ctx); closeErr != nil {
 			err = errors.Join(err, closeErr)
 		}
 	}()
@@ -96,7 +96,7 @@ func (u *BasicUpdatePlanner) ExecuteInsert(ctx context.Context, insertData *dbpa
 		return 0, fmt.Errorf("open table plan for %q: %w", insertData.TableName(), err)
 	}
 	defer func() {
-		if closeErr := scan.Close(); closeErr != nil {
+		if closeErr := scan.Close(ctx); closeErr != nil {
 			err = errors.Join(err, closeErr)
 		}
 	}()

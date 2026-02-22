@@ -73,7 +73,7 @@ func NewBTreeIndex(ctx context.Context, tx *dbtx.Transaction, idxName string, le
 		if err := node.InsertDir(ctx, 0, minValue, rootBlock.BlockNum()); err != nil {
 			return nil, fmt.Errorf("insert dir: %w", err)
 		}
-		if err := node.Close(); err != nil {
+		if err := node.Close(ctx); err != nil {
 			return nil, fmt.Errorf("close: %w", err)
 		}
 	}

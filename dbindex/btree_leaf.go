@@ -39,7 +39,7 @@ func NewBTreeLeaf(ctx context.Context, tx *dbtx.Transaction, blk dbfile.BlockID,
 }
 
 func (b *BTreeLeaf) Close(ctx context.Context) error {
-	return b.contents.Close()
+	return b.contents.Close(ctx)
 }
 
 func (b *BTreeLeaf) Next(ctx context.Context) (bool, error) {
@@ -107,7 +107,7 @@ func (b *BTreeLeaf) tryOverflow(ctx context.Context) (bool, error) {
 		// blockの最初がsearchKeyに一致しないあるいはオーバーフローしてない
 		return false, nil
 	}
-	if err := b.contents.Close(); err != nil {
+	if err := b.contents.Close(ctx); err != nil {
 		return false, fmt.Errorf("close: %w", err)
 	}
 	nextBlk := dbfile.NewBlockID(b.fileName, flag)

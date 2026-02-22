@@ -49,7 +49,7 @@ func (v *ViewManager) CreateView(ctx context.Context, viewName string, viewDef s
 	if err := ts.SetString(ctx, "viewdef", viewDef); err != nil {
 		return fmt.Errorf("set viewdef for %q: %w", viewName, err)
 	}
-	if err := ts.Close(); err != nil {
+	if err := ts.Close(ctx); err != nil {
 		return fmt.Errorf("close table scan for view_catalog when creating view %q: %w", viewName, err)
 	}
 	return nil
@@ -87,7 +87,7 @@ func (v *ViewManager) GetViewDef(ctx context.Context, viewName string, tx *dbtx.
 			break
 		}
 	}
-	if err := ts.Close(); err != nil {
+	if err := ts.Close(ctx); err != nil {
 		return "", fmt.Errorf("close view_catalog: %w", err)
 	}
 	return viewDef, nil

@@ -67,7 +67,7 @@ func (i *IndexSelectScan) Close(ctx context.Context) error {
 	if err := i.index.Close(ctx); err != nil {
 		return fmt.Errorf("close index: %w", err)
 	}
-	if err := i.ts.Close(); err != nil {
+	if err := i.ts.Close(ctx); err != nil {
 		return fmt.Errorf("close table scan: %w", err)
 	}
 	return nil

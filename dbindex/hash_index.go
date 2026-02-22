@@ -33,7 +33,7 @@ func NewHashIndex(tx *dbtx.Transaction, indexName string, layout *dbrecord.Layou
 }
 
 func (h *HashIndex) BeforeFirst(ctx context.Context, searchKey dbconstant.Constant) error {
-	if err := h.Close(); err != nil {
+	if err := h.Close(ctx); err != nil {
 		return err
 	}
 	h.state.searchKey = searchKey
@@ -66,8 +66,8 @@ func (h *HashIndex) Next(ctx context.Context) (bool, error) {
 	return false, nil
 }
 
-func (h *HashIndex) Close() error {
-	return h.state.ts.Close()
+func (h *HashIndex) Close(ctx context.Context) error {
+	return h.state.ts.Close(ctx)
 }
 
 func (h *HashIndex) GetDataRID(ctx context.Context) (dbrecord.RID, error) {

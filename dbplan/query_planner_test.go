@@ -109,7 +109,7 @@ func TestQueryPlannerCreatePlanSingleTable(t *testing.T) {
 			t.Fatalf("failed to set age: %v", err)
 		}
 	}
-	ts.Close()
+	ts.Close(ctx)
 
 	// Create query planner and execute query
 	qp := dbplan.NewQueryPlanner(mm)
@@ -142,7 +142,7 @@ func TestQueryPlannerCreatePlanSingleTable(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to open plan: %v", err)
 	}
-	defer scan.Close()
+	defer scan.Close(ctx)
 	if err := scan.SetStateToBeforeFirst(ctx); err != nil {
 		t.Fatalf("failed to set state to before first: %v", err)
 	}
@@ -215,7 +215,7 @@ func TestQueryPlannerCreatePlanWithWhere(t *testing.T) {
 			t.Fatalf("failed to set age: %v", err)
 		}
 	}
-	ts.Close()
+	ts.Close(ctx)
 
 	// Create query planner and execute query with WHERE
 	qp := dbplan.NewQueryPlanner(mm)
@@ -236,7 +236,7 @@ func TestQueryPlannerCreatePlanWithWhere(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to open plan: %v", err)
 	}
-	defer scan.Close()
+	defer scan.Close(ctx)
 	if err := scan.SetStateToBeforeFirst(ctx); err != nil {
 		t.Fatalf("failed to set state to before first: %v", err)
 	}
@@ -313,7 +313,7 @@ func TestQueryPlannerCreatePlanMultipleTables(t *testing.T) {
 			t.Fatalf("failed to set user name: %v", err)
 		}
 	}
-	usersScan.Close()
+	usersScan.Close(ctx)
 
 	// Insert orders data
 	ordersLayout, err := mm.GetLayout(ctx, "orders", tx)
@@ -350,7 +350,7 @@ func TestQueryPlannerCreatePlanMultipleTables(t *testing.T) {
 			t.Fatalf("failed to set amount: %v", err)
 		}
 	}
-	ordersScan.Close()
+	ordersScan.Close(ctx)
 
 	// Create query planner and execute join query
 	qp := dbplan.NewQueryPlanner(mm)
@@ -380,7 +380,7 @@ func TestQueryPlannerCreatePlanMultipleTables(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to open plan: %v", err)
 	}
-	defer scan.Close()
+	defer scan.Close(ctx)
 	if err := scan.SetStateToBeforeFirst(ctx); err != nil {
 		t.Fatalf("failed to set state to before first: %v", err)
 	}
@@ -454,7 +454,7 @@ func TestQueryPlannerCreatePlanWithView(t *testing.T) {
 			t.Fatalf("failed to set age: %v", err)
 		}
 	}
-	ts.Close()
+	ts.Close(ctx)
 
 	// Create view
 	if err := mm.CreateView(ctx, "young_users", "SELECT id, name FROM users WHERE age = 25", tx); err != nil {
@@ -480,7 +480,7 @@ func TestQueryPlannerCreatePlanWithView(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to open plan: %v", err)
 	}
-	defer scan.Close()
+	defer scan.Close(ctx)
 	if err := scan.SetStateToBeforeFirst(ctx); err != nil {
 		t.Fatalf("failed to set state to before first: %v", err)
 	}

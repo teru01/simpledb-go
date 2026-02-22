@@ -107,7 +107,7 @@ func TestSelectScanFilterByInt(t *testing.T) {
 	pred := dbquery.NewPredicate(term)
 
 	selectScan := dbquery.NewSelectScan(ts, pred)
-	defer selectScan.Close()
+	defer selectScan.Close(ctx)
 
 	// Verify filtered results
 	expectedIDs := []int{1, 3, 5}
@@ -194,7 +194,7 @@ func TestSelectScanFilterByString(t *testing.T) {
 	pred := dbquery.NewPredicate(term)
 
 	selectScan := dbquery.NewSelectScan(ts, pred)
-	defer selectScan.Close()
+	defer selectScan.Close(ctx)
 
 	// Verify filtered results
 	expectedIDs := []int{1, 3}
@@ -287,7 +287,7 @@ func TestSelectScanMultipleTerms(t *testing.T) {
 	pred := dbquery.NewPredicate(term1, term2)
 
 	selectScan := dbquery.NewSelectScan(ts, pred)
-	defer selectScan.Close()
+	defer selectScan.Close(ctx)
 
 	// Verify filtered results: only id=1 and id=4 match name="Alice" AND age=25
 	expectedIDs := []int{1, 4}
@@ -362,7 +362,7 @@ func TestSelectScanNoMatches(t *testing.T) {
 	pred := dbquery.NewPredicate(term)
 
 	selectScan := dbquery.NewSelectScan(ts, pred)
-	defer selectScan.Close()
+	defer selectScan.Close(ctx)
 
 	// Verify no results
 	ok, err := selectScan.Next(ctx)
@@ -390,7 +390,7 @@ func TestSelectScanHasField(t *testing.T) {
 	pred := dbquery.NewPredicate(term)
 
 	selectScan := dbquery.NewSelectScan(ts, pred)
-	defer selectScan.Close()
+	defer selectScan.Close(ctx)
 
 	if !selectScan.HasField("id") {
 		t.Errorf("expected HasField('id') to be true")
@@ -467,14 +467,14 @@ func TestSelectScanUpdate(t *testing.T) {
 			t.Fatalf("failed to set age: %v", err)
 		}
 	}
-	selectScan.Close()
+	selectScan.Close(ctx)
 
 	// Create a new TableScan for verification
 	ts2, err := dbrecord.NewTableScan(ctx, tx, tableName, layout)
 	if err != nil {
 		t.Fatalf("failed to create table scan for verification: %v", err)
 	}
-	defer ts2.Close()
+	defer ts2.Close(ctx)
 
 	expectedAges := map[int]int{
 		1: 99, // was 25, updated to 99
@@ -571,14 +571,14 @@ func TestSelectScanDelete(t *testing.T) {
 			t.Fatalf("failed to delete: %v", err)
 		}
 	}
-	selectScan.Close()
+	selectScan.Close(ctx)
 
 	// Create a new TableScan for verification
 	ts2, err := dbrecord.NewTableScan(ctx, tx, tableName, layout)
 	if err != nil {
 		t.Fatalf("failed to create table scan for verification: %v", err)
 	}
-	defer ts2.Close()
+	defer ts2.Close(ctx)
 
 	expectedIDs := []int{2, 4} // Only Bob(30) and David(35) should remain
 	count := 0

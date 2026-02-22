@@ -78,7 +78,7 @@ func (t *TableManager) CreateTable(ctx context.Context, tableName string, schema
 	if err := tableCatlog.SetInt(ctx, "slotsize", layout.SlotSize()); err != nil {
 		return fmt.Errorf("set slotsize for %q: %w", tableName, err)
 	}
-	if err := tableCatlog.Close(); err != nil {
+	if err := tableCatlog.Close(ctx); err != nil {
 		return fmt.Errorf("close table scan for table_catalog when creating %q: %w", tableName, err)
 	}
 	fieldCatlog, err := dbrecord.NewTableScan(ctx, tx, FieldCatalogTableName, t.fieldCatalogLayout)
@@ -105,7 +105,7 @@ func (t *TableManager) CreateTable(ctx context.Context, tableName string, schema
 			return fmt.Errorf("set offset for %q: %w", tableName, err)
 		}
 	}
-	if err := fieldCatlog.Close(); err != nil {
+	if err := fieldCatlog.Close(ctx); err != nil {
 		return fmt.Errorf("close table scan for field_catalog when creating %q: %w", tableName, err)
 	}
 	return nil
@@ -123,7 +123,7 @@ func (t *TableManager) GetLayout(ctx context.Context, tableName string, tx *dbtx
 			return nil, fmt.Errorf("go next for %q: %w", TableCatalogTableName, err)
 		}
 		if !next {
-			if err := tableCatlog.Close(); err != nil {
+			if err := tableCatlog.Close(ctx); err != nil {
 				return nil, fmt.Errorf("close table_catalog: %w", err)
 			}
 			break
@@ -155,7 +155,7 @@ func (t *TableManager) GetLayout(ctx context.Context, tableName string, tx *dbtx
 			return nil, fmt.Errorf("go next for %q: %w", FieldCatalogTableName, err)
 		}
 		if !next {
-			if err := fieldCatlog.Close(); err != nil {
+			if err := fieldCatlog.Close(ctx); err != nil {
 				return nil, fmt.Errorf("close field_catalog: %w", err)
 			}
 			break

@@ -75,7 +75,7 @@ func (s *StatManager) refreshStatisticsLocked(ctx context.Context, tx *dbtx.Tran
 		return fmt.Errorf("new table scan for table_catalog: %w", err)
 	}
 	defer func() {
-		if closeErr := ts.Close(); closeErr != nil {
+		if closeErr := ts.Close(ctx); closeErr != nil {
 			err = errors.Join(err, fmt.Errorf("close table scan for table_catalog: %w", err))
 		}
 	}()
@@ -110,7 +110,7 @@ func (s *StatManager) calcTableStatsLocked(ctx context.Context, tableName string
 		return nil, fmt.Errorf("new table scan for %q: %w", tableName, err)
 	}
 	defer func() {
-		if closeErr := ts.Close(); closeErr != nil {
+		if closeErr := ts.Close(ctx); closeErr != nil {
 			err = errors.Join(err, closeErr)
 		}
 	}()

@@ -52,6 +52,6 @@ func (s *ProjectScan) HasField(fieldName string) bool {
 	return s.scan.HasField(fieldName)
 }
 
-func (s *ProjectScan) Close() error {
-	return s.scan.Close()
+func (s *ProjectScan) Close(ctx context.Context) error {
+	return s.scan.Close(ctx)
 }
