@@ -76,6 +76,7 @@ func (i *IndexManager) CreateIndex(ctx context.Context, indexName string, tableN
 	return nil
 }
 
+// tableNameのテーブルに対して、フィールド名をキーにしたインデックスのマップを返す
 func (i *IndexManager) GetIndexInfo(ctx context.Context, tableName string, tx *dbtx.Transaction) (indexInfos map[string]*IndexInfo, err error) {
 	indexInfos = make(map[string]*IndexInfo)
 	ts, err := dbrecord.NewTableScan(ctx, tx, IndexCatalogTableName, i.layout)

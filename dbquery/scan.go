@@ -22,6 +22,7 @@ type UpdateScan interface {
 	SetInt(ctx context.Context, fieldName string, value int) error
 	SetString(ctx context.Context, fieldName string, value string) error
 	SetValue(ctx context.Context, fieldName string, value dbconstant.Constant) error
+	// 空きスロットを確保するだけ
 	Insert(ctx context.Context) error
 	Delete(ctx context.Context) error
 	MoveToRID(ctx context.Context, rID dbrecord.RID) error
