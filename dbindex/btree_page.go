@@ -6,7 +6,7 @@ import (
 
 	"github.com/teru01/simpledb-go/dbconstant"
 	"github.com/teru01/simpledb-go/dbfile"
-	"github.com/teru01/simpledb-go/dbmetadata"
+	"github.com/teru01/simpledb-go/dbname"
 	"github.com/teru01/simpledb-go/dbrecord"
 	"github.com/teru01/simpledb-go/dbsize"
 	"github.com/teru01/simpledb-go/dbtx"
@@ -159,28 +159,28 @@ func (b *BTreePage) MakeDefaultRecord(ctx context.Context, blk dbfile.BlockID, p
 }
 
 func (b *BTreePage) GetChildNum(ctx context.Context, slot int) (int, error) {
-	return b.getInt(ctx, slot, dbmetadata.IndexFieldBlock)
+	return b.getInt(ctx, slot, dbname.IndexFieldBlock)
 }
 
 func (b *BTreePage) InsertDir(ctx context.Context, slot int, value dbconstant.Constant, blockNum int) error {
 	if err := b.insert(ctx, slot); err != nil {
 		return fmt.Errorf("insert to slot %q: %w", slot, err)
 	}
-	if err := b.setValue(ctx, slot, dbmetadata.IndexFieldDataValue, value); err != nil {
+	if err := b.setValue(ctx, slot, dbname.IndexFieldDataValue, value); err != nil {
 		return fmt.Errorf("set value: %w", err)
 	}
-	if err := b.setInt(ctx, slot, dbmetadata.IndexFieldBlock, blockNum); err != nil {
+	if err := b.setInt(ctx, slot, dbname.IndexFieldBlock, blockNum); err != nil {
 		return fmt.Errorf("set int: %w", err)
 	}
 	return nil
 }
 
 func (b *BTreePage) GetDataRID(ctx context.Context, slot int) (*dbrecord.RID, error) {
-	blk, err := b.getInt(ctx, slot, dbmetadata.IndexFieldBlock)
+	blk, err := b.getInt(ctx, slot, dbname.IndexFieldBlock)
 	if err != nil {
 		return nil, fmt.Errorf("get block: %w", err)
 	}
-	id, err := b.getInt(ctx, slot, dbmetadata.IndexFieldDataValue)
+	id, err := b.getInt(ctx, slot, dbname.IndexFieldDataValue)
 	if err != nil {
 		return nil, fmt.Errorf("get data value: %w", err)
 	}
@@ -191,13 +191,13 @@ func (b *BTreePage) InsertLeaf(ctx context.Context, slot int, value dbconstant.C
 	if err := b.insert(ctx, slot); err != nil {
 		return fmt.Errorf("insert for leaf: %w", err)
 	}
-	if err := b.setValue(ctx, slot, dbmetadata.IndexFieldDataValue, value); err != nil {
+	if err := b.setValue(ctx, slot, dbname.IndexFieldDataValue, value); err != nil {
 		return fmt.Errorf("set value: %w", err)
 	}
-	if err := b.setInt(ctx, slot, dbmetadata.IndexFieldBlock, rid.BlockNum()); err != nil {
+	if err := b.setInt(ctx, slot, dbname.IndexFieldBlock, rid.BlockNum()); err != nil {
 		return fmt.Errorf("set block: %w", err)
 	}
-	if err := b.setInt(ctx, slot, dbmetadata.IndexFieldID, rid.Slot()); err != nil {
+	if err := b.setInt(ctx, slot, dbname.IndexFieldID, rid.Slot()); err != nil {
 		return fmt.Errorf("set id: %w", err)
 	}
 	return nil
@@ -220,7 +220,7 @@ func (b *BTreePage) Delete(ctx context.Context, slot int) error {
 }
 
 func (b *BTreePage) GetDataValue(ctx context.Context, slot int) (dbconstant.Constant, error) {
-	return b.getValue(ctx, slot, dbmetadata.IndexFieldDataValue)
+	return b.getValue(ctx, slot, dbname.IndexFieldDataValue)
 }
 
 // 現在見ているブロックにあるレコード数を返す

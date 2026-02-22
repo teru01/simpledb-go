@@ -7,7 +7,7 @@ import (
 
 	"github.com/teru01/simpledb-go/dbconstant"
 	"github.com/teru01/simpledb-go/dbfile"
-	"github.com/teru01/simpledb-go/dbmetadata"
+	"github.com/teru01/simpledb-go/dbname"
 	"github.com/teru01/simpledb-go/dbrecord"
 	"github.com/teru01/simpledb-go/dbtx"
 )
@@ -40,8 +40,8 @@ func NewBTreeIndex(ctx context.Context, tx *dbtx.Transaction, idxName string, le
 		}
 	}
 	dirSchema := dbrecord.NewSchema()
-	dirSchema.Add(dbmetadata.IndexFieldBlock, leafLayout.Schema())
-	dirSchema.Add(dbmetadata.IndexFieldDataValue, leafLayout.Schema())
+	dirSchema.Add(dbname.IndexFieldBlock, leafLayout.Schema())
+	dirSchema.Add(dbname.IndexFieldDataValue, leafLayout.Schema())
 
 	dirTable := idxName + "dir"
 	dirLayout := dbrecord.NewLayout(dirSchema)
@@ -63,7 +63,7 @@ func NewBTreeIndex(ctx context.Context, tx *dbtx.Transaction, idxName string, le
 		if err := node.Format(ctx, rootBlock, 0); err != nil {
 			return nil, fmt.Errorf("format: %w", err)
 		}
-		fieldType := dirLayout.Schema().FieldType(dbmetadata.IndexFieldDataValue)
+		fieldType := dirLayout.Schema().FieldType(dbname.IndexFieldDataValue)
 		var minValue dbconstant.Constant
 		if fieldType == dbrecord.FieldTypeInt {
 			minValue = dbconstant.NewIntConstant(math.MinInt)

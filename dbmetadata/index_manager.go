@@ -5,16 +5,14 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/teru01/simpledb-go/dbindex"
+	"github.com/teru01/simpledb-go/dbname"
 	"github.com/teru01/simpledb-go/dbrecord"
 	"github.com/teru01/simpledb-go/dbtx"
 )
 
 const (
 	IndexCatalogTableName = "index_catalog"
-
-	IndexFieldID        = "id"
-	IndexFieldBlock     = "block"
-	IndexFieldDataValue = "data_value"
 )
 
 type IndexManager struct {
@@ -166,14 +164,18 @@ func (i *IndexInfo) DistinctValues(fieldName string) int {
 
 func (i *IndexInfo) createIndexLayout() *dbrecord.Layout {
 	schema := dbrecord.NewSchema()
-	schema.AddIntField(IndexFieldBlock)
-	schema.AddIntField(IndexFieldID)
+	schema.AddIntField(dbname.IndexFieldBlock)
+	schema.AddIntField(dbname.IndexFieldID)
 	if i.tableLayout.Schema().FieldType(i.fieldName) == dbrecord.FieldTypeInt {
-		schema.AddIntField(IndexFieldDataValue)
+		schema.AddIntField(dbname.IndexFieldDataValue)
 	} else {
-		schema.AddStringField(IndexFieldDataValue, i.tableLayout.Schema().Length(i.fieldName))
+		schema.AddStringField(dbname.IndexFieldDataValue, i.tableLayout.Schema().Length(i.fieldName))
 	}
 	return dbrecord.NewLayout(schema)
+}
+
+func (i *IndexInfo) Open(ctx context.Context) (dbindex.Index, error) {
+	return dbindex.NewBTreeIndex(ctx, i.tx, i.indexName, i.indexLayout)
 }
 
 func (i *IndexInfo) IndexName() string {

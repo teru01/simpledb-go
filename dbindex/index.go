@@ -13,5 +13,5 @@ type Index interface {
 	GetDataRID(ctx context.Context) (dbrecord.RID, error)
 	Insert(ctx context.Context, dataRID dbrecord.RID) error
 	Delete(ctx context.Context, dataRID dbrecord.RID) error
-	Close() error
+	Close(ctx context.Context) error
 }

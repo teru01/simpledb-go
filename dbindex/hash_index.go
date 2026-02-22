@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/teru01/simpledb-go/dbconstant"
-	"github.com/teru01/simpledb-go/dbmetadata"
+	"github.com/teru01/simpledb-go/dbname"
 	"github.com/teru01/simpledb-go/dbrecord"
 	"github.com/teru01/simpledb-go/dbtx"
 )
@@ -55,7 +55,7 @@ func (h *HashIndex) Next(ctx context.Context) (bool, error) {
 		if !ok {
 			break
 		}
-		v, err := h.state.ts.GetValue(ctx, dbmetadata.IndexFieldDataValue)
+		v, err := h.state.ts.GetValue(ctx, dbname.IndexFieldDataValue)
 		if err != nil {
 			return false, err
 		}
@@ -71,11 +71,11 @@ func (h *HashIndex) Close() error {
 }
 
 func (h *HashIndex) GetDataRID(ctx context.Context) (dbrecord.RID, error) {
-	blk, err := h.state.ts.GetInt(ctx, dbmetadata.IndexFieldBlock)
+	blk, err := h.state.ts.GetInt(ctx, dbname.IndexFieldBlock)
 	if err != nil {
 		return dbrecord.RID{}, fmt.Errorf("get block: %w", err)
 	}
-	id, err := h.state.ts.GetInt(ctx, dbmetadata.IndexFieldID)
+	id, err := h.state.ts.GetInt(ctx, dbname.IndexFieldID)
 	if err != nil {
 		return dbrecord.RID{}, fmt.Errorf("get id: %w", err)
 	}
@@ -90,13 +90,13 @@ func (h *HashIndex) Insert(ctx context.Context, val dbconstant.Constant, dataRID
 	if err := h.state.ts.Insert(ctx); err != nil {
 		return fmt.Errorf("insert to index: %w", err)
 	}
-	if err := h.state.ts.SetInt(ctx, dbmetadata.IndexFieldBlock, dataRID.BlockNum()); err != nil {
+	if err := h.state.ts.SetInt(ctx, dbname.IndexFieldBlock, dataRID.BlockNum()); err != nil {
 		return fmt.Errorf("set block: %w", err)
 	}
-	if err := h.state.ts.SetInt(ctx, dbmetadata.IndexFieldID, dataRID.Slot()); err != nil {
+	if err := h.state.ts.SetInt(ctx, dbname.IndexFieldID, dataRID.Slot()); err != nil {
 		return fmt.Errorf("set id: %w", err)
 	}
-	if err := h.state.ts.SetValue(ctx, dbmetadata.IndexFieldDataValue, val); err != nil {
+	if err := h.state.ts.SetValue(ctx, dbname.IndexFieldDataValue, val); err != nil {
 		return fmt.Errorf("set data value: %w", err)
 	}
 	return nil
