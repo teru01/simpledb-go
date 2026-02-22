@@ -1,9 +1,13 @@
 package dbplan
 
 import (
+	"context"
+	"fmt"
+
 	"github.com/teru01/simpledb-go/dbconstant"
 	"github.com/teru01/simpledb-go/dbmetadata"
 	"github.com/teru01/simpledb-go/dbquery"
+	"github.com/teru01/simpledb-go/dbrecord"
 )
 
 type IndexSelectPlan struct {
@@ -19,15 +23,34 @@ func NewIndexSelectPlan(indexInfo dbmetadata.IndexInfo, value dbconstant.Constan
 	}
 }
 
-// func (p *IndexSelectPlan) Open(ctx context.Context) (dbquery.Scan, error) {
-// 	ts, err := p.plan.Open(ctx)
-// 	if err != nil {
-// 		return nil, fmt.Errorf("open plan: %w", err)
-// 	}
-// 	idx, err := p.indexInfo.Open(ctx)
-// 	if err != nil {
-// 		return nil, fmt.Errorf("open index: %w", err)
-// 	}
-// 	//
-// 	return nil, nil
-// }
+func (p *IndexSelectPlan) Open(ctx context.Context) (dbquery.Scan, error) {
+	s, err := p.plan.Open(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("open plan: %w", err)
+	}
+	ts, ok := s.(*dbrecord.TableScan)
+	if !ok {
+		return nil, fmt.Errorf("can't open index other than table scan")
+	}
+	idx, err := p.indexInfo.Open(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("open index: %w", err)
+	}
+	return dbquery.NewIndexSelectScan(ctx, ts, idx, p.value)
+}
+
+func (p *IndexSelectPlan) BlocksAccessed() int {
+	return p.indexInfo.BlockAccessed() + p.RecordsOutput()
+}
+
+func (p *IndexSelectPlan) RecordsOutput() int {
+	return p.indexInfo.RecordsOutput()
+}
+
+func (p *IndexSelectPlan) DistinctValues(fieldName string) int {
+	return p.indexInfo.DistinctValues(fieldName)
+}
+
+func (p *IndexSelectPlan) Schema() *dbrecord.Schema {
+	return p.plan.Schema()
+}

@@ -15,18 +15,19 @@ type IndexSelectScan struct {
 	value dbconstant.Constant
 }
 
-func NewIndexSelectScan(ctx context.Context, index dbindex.Index, value dbconstant.Constant) (*IndexSelectScan, error) {
+func NewIndexSelectScan(ctx context.Context, ts *dbrecord.TableScan, index dbindex.Index, value dbconstant.Constant) (*IndexSelectScan, error) {
 	iss := &IndexSelectScan{
+		ts:    ts,
 		index: index,
 		value: value,
 	}
-	if err := iss.BeforeFirst(ctx); err != nil {
+	if err := iss.SetStateToBeforeFirst(ctx); err != nil {
 		return nil, fmt.Errorf("before first: %w", err)
 	}
 	return iss, nil
 }
 
-func (i *IndexSelectScan) BeforeFirst(ctx context.Context) error {
+func (i *IndexSelectScan) SetStateToBeforeFirst(ctx context.Context) error {
 	return i.index.BeforeFirst(ctx, i.value)
 }
 
@@ -59,7 +60,7 @@ func (i *IndexSelectScan) GetValue(ctx context.Context, fieldName string) (dbcon
 	return i.ts.GetValue(ctx, fieldName)
 }
 
-func (i *IndexSelectScan) HasField(ctx context.Context, fieldName string) bool {
+func (i *IndexSelectScan) HasField(fieldName string) bool {
 	return i.ts.HasField(fieldName)
 }
 

@@ -1,0 +1,3 @@
+package dbplan
+
+// type IndexJoinPlan
