@@ -38,6 +38,7 @@ func (s *Schema) AddStringField(fieldName string, length int) {
 	s.AddField(fieldName, FieldTypeString, length)
 }
 
+// schemaのfieldNameのフィールドを追加する
 func (s *Schema) Add(fieldName string, schema *Schema) {
 	s.AddField(fieldName, schema.FieldType(fieldName), schema.Length(fieldName))
 }

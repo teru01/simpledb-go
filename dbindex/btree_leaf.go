@@ -120,6 +120,7 @@ func (b *BTreeLeaf) tryOverflow(ctx context.Context) (bool, error) {
 	return true, nil
 }
 
+// leafに挿入する。満杯になればsplitして新たにできたブロックの先頭entryを返す
 func (b *BTreeLeaf) Insert(ctx context.Context, dataRID *dbrecord.RID) (*DirEntry, error) {
 	flag, err := b.contents.GetFlag(ctx)
 	if err != nil {
