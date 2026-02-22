@@ -175,3 +175,6 @@ func (b *BTreeIndex) Delete(ctx context.Context, dataValue dbconstant.Constant, 
 	return nil
 }
 
+func BTreeIndexSearchCost(numBlocks int, rpb int) int {
+	return int(1 + math.Log2(float64(numBlocks))/math.Log2(float64(rpb)))
+}

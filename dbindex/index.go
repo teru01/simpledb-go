@@ -10,8 +10,8 @@ import (
 type Index interface {
 	BeforeFirst(ctx context.Context, searchKey dbconstant.Constant) error
 	Next(ctx context.Context) (bool, error)
-	GetDataRID(ctx context.Context) (dbrecord.RID, error)
-	Insert(ctx context.Context, dataRID dbrecord.RID) error
-	Delete(ctx context.Context, dataRID dbrecord.RID) error
+	GetDataRID(ctx context.Context) (*dbrecord.RID, error)
+	Insert(ctx context.Context, dataValue dbconstant.Constant, dataRID dbrecord.RID) error
+	Delete(ctx context.Context, dataValue dbconstant.Constant, dataRID dbrecord.RID) error
 	Close(ctx context.Context) error
 }

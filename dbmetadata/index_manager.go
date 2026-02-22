@@ -148,7 +148,7 @@ func NewIndexInfo(ctx context.Context, indexName string, fieldName string, table
 func (i *IndexInfo) blockAccessed() (int, error) {
 	recordsPerBlock := i.tx.BlockSize() / i.tableLayout.SlotSize()
 	numBlocks := i.RecordsOutput() / recordsPerBlock
-	return numBlocks, nil // needs to modify
+	return dbindex.BTreeIndexSearchCost(numBlocks, recordsPerBlock), nil
 }
 
 func (i *IndexInfo) RecordsOutput() int {

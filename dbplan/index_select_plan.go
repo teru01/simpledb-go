@@ -27,7 +27,10 @@ func (p *IndexSelectPlan) Open(ctx context.Context) (dbquery.Scan, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open plan: %w", err)
 	}
-	idx := p.indexInfo.Open()
-
+	idx, err := p.indexInfo.Open(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("open index: %w", err)
+	}
+	//
 	return nil, nil
 }
