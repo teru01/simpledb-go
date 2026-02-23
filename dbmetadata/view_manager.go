@@ -17,8 +17,8 @@ type ViewManager struct {
 	tableManager *TableManager
 }
 
-func NewViewManager(ctx context.Context, isNew bool, tableManager *TableManager, tx *dbtx.Transaction) (*ViewManager, error) {
-	if isNew {
+func NewViewManager(ctx context.Context, tableManager *TableManager, tx *dbtx.Transaction) (*ViewManager, error) {
+	if _, err := tableManager.GetLayout(ctx, ViewCatalogTableName, tx); err != nil {
 		schema := dbrecord.NewSchema()
 		schema.AddStringField("viewname", MaxNameLength)
 		schema.AddStringField("viewdef", MaxViewDefinitionLength)

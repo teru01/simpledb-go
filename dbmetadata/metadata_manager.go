@@ -24,11 +24,11 @@ func NewMetadataManager(ctx context.Context, isNew bool, tx *dbtx.Transaction) (
 	if err != nil {
 		return nil, fmt.Errorf("new stat manager: %w", err)
 	}
-	indexManager, err := NewIndexManager(ctx, isNew, tableManager, statManager, tx)
+	indexManager, err := NewIndexManager(ctx, tableManager, statManager, tx)
 	if err != nil {
 		return nil, fmt.Errorf("new index manager: %w", err)
 	}
-	viewManager, err := NewViewManager(ctx, isNew, tableManager, tx)
+	viewManager, err := NewViewManager(ctx, tableManager, tx)
 	if err != nil {
 		return nil, fmt.Errorf("new view manager: %w", err)
 	}

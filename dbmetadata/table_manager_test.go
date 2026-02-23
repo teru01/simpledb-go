@@ -175,14 +175,9 @@ func TestTableManagerGetLayoutNonexistentTable(t *testing.T) {
 	ctx := context.Background()
 
 	// Try to get layout for a table that doesn't exist
-	layout, err := tm.GetLayout(ctx, "nonexistent", tx)
-	if err != nil {
-		t.Fatalf("failed to get layout: %v", err)
-	}
-
-	// Should return an empty schema
-	if len(layout.Schema().Fields()) != 0 {
-		t.Errorf("expected empty schema for nonexistent table, got %d fields", len(layout.Schema().Fields()))
+	_, err := tm.GetLayout(ctx, "nonexistent", tx)
+	if err == nil {
+		t.Fatalf("expected error for nonexistent table, got nil")
 	}
 
 	if err := tx.Commit(); err != nil {

@@ -32,12 +32,13 @@ type IndexInfo struct {
 	statInfo    *StatInfo
 }
 
-func NewIndexManager(ctx context.Context, isNew bool, tableManager *TableManager, statManager *StatManager, tx *dbtx.Transaction) (*IndexManager, error) {
-	if isNew {
-		schema := dbrecord.NewSchema()
-		schema.AddStringField("indexname", MaxNameLength)
-		schema.AddStringField("tablename", MaxNameLength)
-		schema.AddStringField("fieldname", MaxNameLength)
+func NewIndexManager(ctx context.Context, tableManager *TableManager, statManager *StatManager, tx *dbtx.Transaction) (*IndexManager, error) {
+	schema := dbrecord.NewSchema()
+	schema.AddStringField("indexname", MaxNameLength)
+	schema.AddStringField("tablename", MaxNameLength)
+	schema.AddStringField("fieldname", MaxNameLength)
+
+	if _, err := tableManager.GetLayout(ctx, IndexCatalogTableName, tx); err != nil {
 		if err := tableManager.CreateTable(ctx, IndexCatalogTableName, schema, tx); err != nil {
 			return nil, fmt.Errorf("create %q table: %w", IndexCatalogTableName, err)
 		}

@@ -46,7 +46,7 @@ func setupTestViewManager(t *testing.T) (*dbmetadata.ViewManager, *dbtx.Transact
 		t.Fatalf("failed to create table manager: %v", err)
 	}
 
-	vm, err := dbmetadata.NewViewManager(ctx, true, tm, tx)
+	vm, err := dbmetadata.NewViewManager(ctx, tm, tx)
 	if err != nil {
 		t.Fatalf("failed to create view manager: %v", err)
 	}

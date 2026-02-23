@@ -141,6 +141,10 @@ func (t *TableManager) GetLayout(ctx context.Context, tableName string, tx *dbtx
 		}
 	}
 
+	if slotSize == -1 {
+		return nil, fmt.Errorf("table %q not found in catalog", tableName)
+	}
+
 	schema := dbrecord.NewSchema()
 
 	fieldCatlog, err := dbrecord.NewTableScan(ctx, tx, FieldCatalogTableName, t.fieldCatalogLayout)
