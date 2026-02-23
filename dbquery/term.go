@@ -9,13 +9,22 @@ import (
 	"github.com/teru01/simpledb-go/dbrecord"
 )
 
+type Operator int
+
+const (
+	Equator     Operator = 0  // =
+	LessThan    Operator = -1 // <
+	GreaterThan Operator = 1  // >
+)
+
 type Term struct {
-	lhs *Expression
-	rhs *Expression
+	lhs      *Expression
+	rhs      *Expression
+	operator Operator
 }
 
-func NewTerm(lhs *Expression, rhs *Expression) *Term {
-	return &Term{lhs: lhs, rhs: rhs}
+func NewTerm(lhs *Expression, rhs *Expression, op Operator) *Term {
+	return &Term{lhs: lhs, rhs: rhs, operator: op}
 }
 
 func (t *Term) IsSatisfied(ctx context.Context, s Scan) (bool, error) {
@@ -27,7 +36,17 @@ func (t *Term) IsSatisfied(ctx context.Context, s Scan) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("evaluate rhs: %w", err)
 	}
-	return lhs.Equals(rhs), nil
+	result := lhs.Compare(rhs)
+	switch t.operator {
+	case Equator:
+		return result == 0, nil
+	case LessThan:
+		return result < 0, nil
+	case GreaterThan:
+		return result > 0, nil
+	default:
+		return false, fmt.Errorf("unknown operator: %d", t.operator)
+	}
 }
 
 func (t *Term) AppliesTo(schema *dbrecord.Schema) bool {

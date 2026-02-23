@@ -61,14 +61,32 @@ func (p *Parser) Term() (*dbquery.Term, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := p.lex.EatDelimiter('='); err != nil {
-		return nil, err
+
+	var op dbquery.Operator
+	if p.lex.IsNextDelimiter('=') {
+		if err := p.lex.EatDelimiter('='); err != nil {
+			return nil, err
+		}
+		op = dbquery.Equator
+	} else if p.lex.IsNextDelimiter('<') {
+		if err := p.lex.EatDelimiter('<'); err != nil {
+			return nil, err
+		}
+		op = dbquery.LessThan
+	} else if p.lex.IsNextDelimiter('>') {
+		if err := p.lex.EatDelimiter('>'); err != nil {
+			return nil, err
+		}
+		op = dbquery.GreaterThan
+	} else {
+		return nil, fmt.Errorf("unexpected delimiter %q", p.lex.nextToken)
 	}
+
 	rhs, err := p.Expression()
 	if err != nil {
 		return nil, err
 	}
-	return dbquery.NewTerm(lhs, rhs), nil
+	return dbquery.NewTerm(lhs, rhs, op), nil
 }
 
 // <Predicate> := <Term> [ AND <Predicate> ]
