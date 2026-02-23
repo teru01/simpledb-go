@@ -40,6 +40,11 @@ func main() {
 
 	slog.Info("simpledb started", "dir", dirName, "blockSize", blockSize, "bufferSize", bufferSize)
 
+	replMode := getEnvOrDefault("REPL_MODE", "true")
+	if replMode != "true" {
+		return
+	}
+
 	rl, err := readline.NewEx(&readline.Config{
 		Prompt:      "> ",
 		HistoryFile: filepath.Join(dirName, ".simpledb_history"),
