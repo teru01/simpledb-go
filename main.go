@@ -3,69 +3,89 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
 
-	"github.com/teru01/simpledb-go/dbbuffer"
-	"github.com/teru01/simpledb-go/dbfile"
-	"github.com/teru01/simpledb-go/dblog"
-	"github.com/teru01/simpledb-go/dbmetadata"
-	"github.com/teru01/simpledb-go/dbtx"
+	"github.com/chzyer/readline"
 )
 
 func main() {
-	fmt.Println("Hello, World!")
-}
+	slog.Info("starting simpledb...")
 
-type SimpleDB struct {
-	fileManager     *dbfile.FileManager
-	logManager      *dblog.LogManager
-	bufferManager   *dbbuffer.BufferManager
-	metadataManager *dbmetadata.MetadataManager
-}
+	dirName := getEnvOrDefault("BASE_DIR", filepath.Join(os.Getenv("PWD"), ".dbdata"))
+	blockSize := getEnvIntOrDefault("BLOCK_SIZE", 4000)
+	bufferSize := getEnvIntOrDefault("BUFFER_SIZE", 100)
 
-func NewSimpleDB(dirName string, blockSize, bufferSize int) (*SimpleDB, func(), error) {
-	f, err := os.Open(dirName)
-	if err != nil {
-		return nil, nil, fmt.Errorf("open %q: %w", dirName, err)
+	if err := os.MkdirAll(dirName, 0755); err != nil {
+		slog.Error("failed to create base dir", "dir", dirName, "error", err)
+		os.Exit(1)
 	}
-	fm, err := dbfile.NewFileManager(f, blockSize)
-	if err != nil {
-		return nil, nil, fmt.Errorf("create file manager: %w", err)
-	}
-	lm, err := dblog.NewLogManager(fm, "log.log")
-	if err != nil {
-		return nil, nil, fmt.Errorf("create log manager: %w", err)
-	}
-	bm := dbbuffer.NewBufferManager(fm, lm, bufferSize)
-	return &SimpleDB{fileManager: fm, logManager: lm, bufferManager: bm}, func() {
-		f.Close()
-	}, nil
-}
 
-func (s *SimpleDB) Init(ctx context.Context) error {
-	tx, err := dbtx.NewTransaction(s.fileManager, s.logManager, s.bufferManager)
+	db, cleanup, err := NewSimpleDB(dirName, blockSize, bufferSize)
 	if err != nil {
-		return fmt.Errorf("create transaction: %w", err)
+		slog.Error("failed to create simpledb", "error", err)
+		os.Exit(1)
 	}
-	isNew := s.fileManager.IsNew()
-	if isNew {
-		slog.Info("initializing new database")
-	} else {
-		slog.Info("recovering database")
-		if err := tx.Recover(ctx); err != nil {
-			return fmt.Errorf("recover database: %w", err)
+	defer cleanup()
+
+	ctx := context.Background()
+	if err := db.Init(ctx); err != nil {
+		slog.Error("failed to initialize simpledb", "error", err)
+		os.Exit(1)
+	}
+
+	slog.Info("simpledb started", "dir", dirName, "blockSize", blockSize, "bufferSize", bufferSize)
+
+	rl, err := readline.NewEx(&readline.Config{
+		Prompt:      "> ",
+		HistoryFile: filepath.Join(dirName, ".simpledb_history"),
+	})
+	if err != nil {
+		slog.Error("failed to create readline", "error", err)
+		os.Exit(1)
+	}
+	defer rl.Close()
+
+	for {
+		line, err := rl.Readline()
+		if err != nil {
+			if err == io.EOF || err == readline.ErrInterrupt {
+				break
+			}
+			slog.Error("reading input", "error", err)
+			break
+		}
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+
+		if err := db.Execute(ctx, line); err != nil {
+			fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		}
 	}
+}
 
-	m, err := dbmetadata.NewMetadataManager(ctx, isNew, tx)
+func getEnvOrDefault(key, defaultVal string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return defaultVal
+}
+
+func getEnvIntOrDefault(key string, defaultVal int) int {
+	v := os.Getenv(key)
+	if v == "" {
+		return defaultVal
+	}
+	n, err := strconv.Atoi(v)
 	if err != nil {
-		return fmt.Errorf("create metadata manager: %w", err)
+		slog.Error("invalid env value", "key", key, "value", v, "error", err)
+		os.Exit(1)
 	}
-	s.metadataManager = m
-
-	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("commit transaction: %w", err)
-	}
-	return nil
+	return n
 }
