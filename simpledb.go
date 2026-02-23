@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"strings"
 
+	"os"
+
 	"github.com/teru01/simpledb-go/dbbuffer"
 	"github.com/teru01/simpledb-go/dbfile"
 	"github.com/teru01/simpledb-go/dblog"
@@ -14,7 +16,6 @@ import (
 	"github.com/teru01/simpledb-go/dbplan"
 	"github.com/teru01/simpledb-go/dbrecord"
 	"github.com/teru01/simpledb-go/dbtx"
-	"os"
 )
 
 type SimpleDB struct {
@@ -23,6 +24,7 @@ type SimpleDB struct {
 	bufferManager   *dbbuffer.BufferManager
 	metadataManager *dbmetadata.MetadataManager
 	planner         *dbplan.Planner
+	explicitTx      *dbtx.Transaction
 }
 
 func NewSimpleDB(dirName string, blockSize, bufferSize int) (*SimpleDB, func(), error) {
@@ -76,25 +78,69 @@ func (s *SimpleDB) Init(ctx context.Context) error {
 }
 
 func (s *SimpleDB) Execute(ctx context.Context, sql string) error {
-	tx, err := dbtx.NewTransaction(s.fileManager, s.logManager, s.bufferManager)
-	if err != nil {
-		return fmt.Errorf("create transaction: %w", err)
+	if matchStartTx(sql) {
+		tx, err := dbtx.NewTransaction(s.fileManager, s.logManager, s.bufferManager)
+		if err != nil {
+			return fmt.Errorf("create transaction: %w", err)
+		}
+		s.explicitTx = tx
+		return nil
+	} else if matchCommit(sql) {
+		if s.explicitTx == nil {
+			return fmt.Errorf("no transactions yet.")
+		}
+		if err := s.explicitTx.Commit(); err != nil {
+			return fmt.Errorf("commit: %w", err)
+		}
+		s.explicitTx = nil
+		return nil
+	} else if matchRollback(sql) {
+		if s.explicitTx == nil {
+			return fmt.Errorf("no transactions yet.")
+		}
+		if err := s.explicitTx.Rollback(ctx); err != nil {
+			return fmt.Errorf("rollback: %w", err)
+		}
+		s.explicitTx = nil
+		return nil
 	}
 
-	if strings.HasPrefix(strings.ToLower(sql), "select") {
+	var (
+		tx  *dbtx.Transaction
+		err error
+	)
+	if s.explicitTx != nil {
+		tx = s.explicitTx
+	} else {
+		tx, err = dbtx.NewTransaction(s.fileManager, s.logManager, s.bufferManager)
+		if err != nil {
+			return fmt.Errorf("create transaction: %w", err)
+		}
+	}
+
+	if matchSelect(sql) {
 		if err := s.execQuery(ctx, tx, sql); err != nil {
-			tx.Rollback(ctx)
+			s.explicitTx = nil
+			if err := tx.Rollback(ctx); err != nil {
+				return err
+			}
 			return err
 		}
 	} else {
 		n, err := s.planner.ExecuteUpdate(ctx, sql, tx)
 		if err != nil {
-			tx.Rollback(ctx)
+			s.explicitTx = nil
+			if err := tx.Rollback(ctx); err != nil {
+				return err
+			}
 			return err
 		}
 		fmt.Printf("%d row(s) affected\n", n)
 	}
 
+	if s.explicitTx != nil {
+		return nil
+	}
 	return tx.Commit()
 }
 
@@ -186,4 +232,20 @@ func padRight(s string, width int) string {
 		return s
 	}
 	return s + strings.Repeat(" ", width-len(s))
+}
+
+func matchSelect(sql string) bool {
+	return strings.HasPrefix(strings.ToLower(sql), "select")
+}
+
+func matchStartTx(sql string) bool {
+	return strings.HasPrefix(strings.ToLower(sql), "start transaction")
+}
+
+func matchCommit(sql string) bool {
+	return strings.HasPrefix(strings.ToLower(sql), "commit")
+}
+
+func matchRollback(sql string) bool {
+	return strings.HasPrefix(strings.ToLower(sql), "rollback")
 }
