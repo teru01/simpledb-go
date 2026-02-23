@@ -71,41 +71,13 @@ func TestIndexSelectPlanOpen(t *testing.T) {
 		t.Fatalf("failed to create index: %v", err)
 	}
 
-	// Build index entries manually
-	ts2, err := dbrecord.NewTableScan(ctx, tx, "users", layout)
-	if err != nil {
-		t.Fatalf("failed to create table scan: %v", err)
-	}
+	// Index entries are automatically built by CreateIndex
 
 	indexInfos, err := mm.GetIndexInfo(ctx, "users", tx)
 	if err != nil {
 		t.Fatalf("failed to get index info: %v", err)
 	}
 	idxInfo := indexInfos["id"]
-	idx, err := idxInfo.Open(ctx)
-	if err != nil {
-		t.Fatalf("failed to open index: %v", err)
-	}
-	for {
-		ok, err := ts2.Next(ctx)
-		if err != nil {
-			t.Fatalf("failed to next: %v", err)
-		}
-		if !ok {
-			break
-		}
-		idVal, err := ts2.GetInt(ctx, "id")
-		if err != nil {
-			t.Fatalf("failed to get id: %v", err)
-		}
-		if err := idx.Insert(ctx, dbconstant.NewIntConstant(idVal), *ts2.RID()); err != nil {
-			t.Fatalf("failed to insert index entry: %v", err)
-		}
-	}
-	if err := idx.Close(ctx); err != nil {
-		t.Fatalf("failed to close index: %v", err)
-	}
-	ts2.Close(ctx)
 
 	// Use IndexSelectPlan to search for id=3
 	tablePlan, err := dbplan.NewTablePlan(ctx, tx, "users", mm)
@@ -185,7 +157,7 @@ func TestIndexSelectPlanNotFound(t *testing.T) {
 	}
 	ts.Close(ctx)
 
-	// Create and populate index
+	// Create index (entries are automatically built)
 	if err := mm.CreateIndex(ctx, "idx_items_id", "items", "id", tx); err != nil {
 		t.Fatalf("failed to create index: %v", err)
 	}
@@ -195,16 +167,6 @@ func TestIndexSelectPlanNotFound(t *testing.T) {
 		t.Fatalf("failed to get index info: %v", err)
 	}
 	idxInfo := indexInfos["id"]
-	idx, err := idxInfo.Open(ctx)
-	if err != nil {
-		t.Fatalf("failed to open index: %v", err)
-	}
-	if err := idx.Insert(ctx, dbconstant.NewIntConstant(1), *dbrecord.NewRID(0, 0)); err != nil {
-		t.Fatalf("failed to insert index: %v", err)
-	}
-	if err := idx.Close(ctx); err != nil {
-		t.Fatalf("failed to close index: %v", err)
-	}
 
 	// Search for non-existent key
 	tablePlan, err := dbplan.NewTablePlan(ctx, tx, "items", mm)
@@ -367,41 +329,12 @@ func TestIndexJoinPlanOpen(t *testing.T) {
 		t.Fatalf("failed to create index: %v", err)
 	}
 
-	// Populate index
+	// Index entries are automatically built by CreateIndex
 	indexInfos, err := mm.GetIndexInfo(ctx, "jorders", tx)
 	if err != nil {
 		t.Fatalf("failed to get index info: %v", err)
 	}
 	idxInfo := indexInfos["ouid"]
-
-	oTs2, err := dbrecord.NewTableScan(ctx, tx, "jorders", ordersLayout)
-	if err != nil {
-		t.Fatalf("failed to create orders scan: %v", err)
-	}
-	idx, err := idxInfo.Open(ctx)
-	if err != nil {
-		t.Fatalf("failed to open index: %v", err)
-	}
-	for {
-		ok, err := oTs2.Next(ctx)
-		if err != nil {
-			t.Fatalf("failed to next: %v", err)
-		}
-		if !ok {
-			break
-		}
-		ouid, err := oTs2.GetInt(ctx, "ouid")
-		if err != nil {
-			t.Fatalf("failed to get ouid: %v", err)
-		}
-		if err := idx.Insert(ctx, dbconstant.NewIntConstant(ouid), *oTs2.RID()); err != nil {
-			t.Fatalf("failed to insert index: %v", err)
-		}
-	}
-	if err := idx.Close(ctx); err != nil {
-		t.Fatalf("failed to close index: %v", err)
-	}
-	oTs2.Close(ctx)
 
 	// Create IndexJoinPlan: join jusers.uid = jorders.ouid
 	p1, err := dbplan.NewTablePlan(ctx, tx, "jusers", mm)
@@ -528,41 +461,12 @@ func TestIndexJoinPlanNoMatch(t *testing.T) {
 		t.Fatalf("failed to create index: %v", err)
 	}
 
+	// Index entries are automatically built by CreateIndex
 	indexInfos, err := mm.GetIndexInfo(ctx, "right_t", tx)
 	if err != nil {
 		t.Fatalf("failed to get index info: %v", err)
 	}
 	idxInfo := indexInfos["rid"]
-
-	// Populate index
-	rTs2, err := dbrecord.NewTableScan(ctx, tx, "right_t", rightLayout)
-	if err != nil {
-		t.Fatalf("failed to create scan: %v", err)
-	}
-	idx, err := idxInfo.Open(ctx)
-	if err != nil {
-		t.Fatalf("failed to open index: %v", err)
-	}
-	for {
-		ok, err := rTs2.Next(ctx)
-		if err != nil {
-			t.Fatalf("failed to next: %v", err)
-		}
-		if !ok {
-			break
-		}
-		val, err := rTs2.GetInt(ctx, "rid")
-		if err != nil {
-			t.Fatalf("failed to get: %v", err)
-		}
-		if err := idx.Insert(ctx, dbconstant.NewIntConstant(val), *rTs2.RID()); err != nil {
-			t.Fatalf("failed to insert index: %v", err)
-		}
-	}
-	if err := idx.Close(ctx); err != nil {
-		t.Fatalf("failed to close: %v", err)
-	}
-	rTs2.Close(ctx)
 
 	p1, err := dbplan.NewTablePlan(ctx, tx, "left_t", mm)
 	if err != nil {

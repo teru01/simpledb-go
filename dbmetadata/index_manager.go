@@ -55,6 +55,7 @@ func NewIndexManager(ctx context.Context, tableManager *TableManager, statManage
 }
 
 func (i *IndexManager) CreateIndex(ctx context.Context, indexName string, tableName string, fieldName string, tx *dbtx.Transaction) error {
+	// register index in catalog
 	ts, err := dbrecord.NewTableScan(ctx, tx, IndexCatalogTableName, i.layout)
 	if err != nil {
 		return fmt.Errorf("new table scan for %q: %w", IndexCatalogTableName, err)
@@ -73,6 +74,48 @@ func (i *IndexManager) CreateIndex(ctx context.Context, indexName string, tableN
 	}
 	if err := ts.Close(ctx); err != nil {
 		return fmt.Errorf("close table scan for %q: %w", IndexCatalogTableName, err)
+	}
+
+	// build index from existing data
+	tableLayout, err := i.tableManager.GetLayout(ctx, tableName, tx)
+	if err != nil {
+		return fmt.Errorf("get layout for %q: %w", tableName, err)
+	}
+	statInfo, err := i.statManager.GetStatInfo(ctx, tableName, tableLayout, tx)
+	if err != nil {
+		return fmt.Errorf("get stat info for %q: %w", tableName, err)
+	}
+	ii, err := NewIndexInfo(ctx, indexName, fieldName, tableName, tableLayout.Schema(), tx, statInfo, tableLayout)
+	if err != nil {
+		return fmt.Errorf("create index info: %w", err)
+	}
+	idx, err := ii.Open(ctx)
+	if err != nil {
+		return fmt.Errorf("open index: %w", err)
+	}
+	defer idx.Close(ctx)
+
+	tableScan, err := dbrecord.NewTableScan(ctx, tx, tableName, tableLayout)
+	if err != nil {
+		return fmt.Errorf("create table scan for %q: %w", tableName, err)
+	}
+	defer tableScan.Close(ctx)
+
+	for {
+		next, err := tableScan.Next(ctx)
+		if err != nil {
+			return fmt.Errorf("scan next for %q: %w", tableName, err)
+		}
+		if !next {
+			break
+		}
+		val, err := tableScan.GetValue(ctx, fieldName)
+		if err != nil {
+			return fmt.Errorf("get value for %q: %w", fieldName, err)
+		}
+		if err := idx.Insert(ctx, val, *tableScan.RID()); err != nil {
+			return fmt.Errorf("insert index entry: %w", err)
+		}
 	}
 	return nil
 }
