@@ -90,6 +90,17 @@ id | name  | class
 4 row(s)
 ```
 
+### INDEX
+```
+> CREATE INDEX idx_name on students (name)
+0 row(s) affected
+> SELECT id, name, class FROM students WHERE name = "goat"
+id | name | class
+---+------+------
+2  | goat | B    
+1 row(s)
+```
+
 ### UPDATE/DELETE
 ```
 > UPDATE students SET class = "F" WHERE id = 4

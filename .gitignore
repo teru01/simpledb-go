@@ -3,4 +3,5 @@
 
 .dbdata
 simpledb
+dbcmd/datagen
 .vscode
