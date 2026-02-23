@@ -40,7 +40,7 @@ func (p *IndexSelectPlan) Open(ctx context.Context) (dbquery.Scan, error) {
 	return dbquery.NewIndexSelectScan(ctx, ts, idx, p.value)
 }
 
-func (p *IndexSelectPlan) BlocksAccessed() int {
+func (p *IndexSelectPlan) BlockAccessed() int {
 	return p.indexInfo.BlockAccessed() + p.RecordsOutput()
 }
 

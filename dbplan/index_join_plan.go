@@ -16,6 +16,7 @@ type IndexJoinPlan struct {
 	schema    *dbrecord.Schema
 }
 
+// p2に対してindexが効いている必要がある
 func NewIndexJoinPlan(p1 dbquery.Plan, p2 dbquery.Plan, indexInfo *dbmetadata.IndexInfo, joinField string) *IndexJoinPlan {
 	schema := dbrecord.NewSchema()
 	schema.AddAll(p1.Schema())
@@ -41,4 +42,23 @@ func (p *IndexJoinPlan) Open(ctx context.Context) (dbquery.Scan, error) {
 		return nil, fmt.Errorf("open index: %w", err)
 	}
 	return dbquery.NewIndexJoinScan(ctx, s1, idx, p.joinField, s2)
+}
+
+func (p *IndexJoinPlan) BlockAccessed() int {
+	return p.p1.BlockAccessed() + p.p1.RecordsOutput()*p.indexInfo.BlockAccessed() + p.RecordsOutput()
+}
+
+func (p *IndexJoinPlan) RecordsOutput() int {
+	return p.p1.RecordsOutput() * p.indexInfo.RecordsOutput()
+}
+
+func (p *IndexJoinPlan) DistinctValues(fieldName string) int {
+	if p.p1.Schema().HasField(fieldName) {
+		return p.p1.DistinctValues(fieldName)
+	}
+	return p.p2.DistinctValues(fieldName)
+}
+
+func (p *IndexJoinPlan) Schema() *dbrecord.Schema {
+	return p.schema
 }

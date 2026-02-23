@@ -184,6 +184,23 @@ func (p *IndexUpdatePlanner) ExecuteModify(ctx context.Context, modifyData *dbpa
 	return affectedRows, nil
 }
 
-func (p *IndexUpdatePlanner) CreatePlan(ctx context.Context, queryData *dbparse.QueryData, tx *dbtx.Transaction) (dbquery.Plan, error) {
-	return nil, nil
+func (p *IndexUpdatePlanner) ExecuteCreateTable(ctx context.Context, data *dbparse.CreateTableData, tx *dbtx.Transaction) (int, error) {
+	if err := p.metadataManager.CreateTable(ctx, data.TableName(), data.Schema(), tx); err != nil {
+		return 0, fmt.Errorf("create table for %q: %w", data.TableName(), err)
+	}
+	return 0, nil
+}
+
+func (p *IndexUpdatePlanner) ExecuteCreateIndex(ctx context.Context, data *dbparse.CreateIndexData, tx *dbtx.Transaction) (int, error) {
+	if err := p.metadataManager.CreateIndex(ctx, data.IndexName(), data.TableName(), data.FieldName(), tx); err != nil {
+		return 0, fmt.Errorf("create index for %q: %w", data.IndexName(), err)
+	}
+	return 0, nil
+}
+
+func (p *IndexUpdatePlanner) ExecuteCreateView(ctx context.Context, data *dbparse.CreateViewData, tx *dbtx.Transaction) (int, error) {
+	if err := p.metadataManager.CreateView(ctx, data.ViewName(), data.Query().String(), tx); err != nil {
+		return 0, fmt.Errorf("create view for %q: %w", data.ViewName(), err)
+	}
+	return 0, nil
 }

@@ -20,9 +20,10 @@ func NewQueryPlanner(metadataManager *dbmetadata.MetadataManager) *BasicQueryPla
 
 // create plan from query data
 // step1: create plan for each table or view
-// step2: create product plan for each pair of plans
-// step3: create select plan
-// step4: create project plan for the final plan
+// step2: apply index select if possible (WHERE field = constant on indexed field)
+// step3: create product plan for each pair of plans
+// step4: create select plan
+// step5: create project plan for the final plan
 func (q *BasicQueryPlanner) CreatePlan(ctx context.Context, queryData *dbparse.QueryData, tx *dbtx.Transaction) (dbquery.Plan, error) {
 	var plans []dbquery.Plan
 	for _, tableName := range queryData.Tables() {
@@ -43,12 +44,24 @@ func (q *BasicQueryPlanner) CreatePlan(ctx context.Context, queryData *dbparse.Q
 			}
 			plans = append(plans, vplan)
 		} else {
-			// no views
 			tablePlan, err := NewTablePlan(ctx, tx, tableName, q.metadataManager)
 			if err != nil {
 				return nil, fmt.Errorf("create table plan for %q: %w", tableName, err)
 			}
-			plans = append(plans, tablePlan)
+			// try to use index select (WHERE indexed_field = constant)
+			var plan dbquery.Plan = tablePlan
+			indexes, err := q.metadataManager.GetIndexInfo(ctx, tableName, tx)
+			if err != nil {
+				return nil, fmt.Errorf("get index info for %q: %w", tableName, err)
+			}
+			for fieldName, ii := range indexes {
+				val := queryData.Predicate().EquatesWithConstant(fieldName)
+				if val != nil {
+					plan = NewIndexSelectPlan(tablePlan, *ii, val)
+					break
+				}
+			}
+			plans = append(plans, plan)
 		}
 	}
 
@@ -56,16 +69,41 @@ func (q *BasicQueryPlanner) CreatePlan(ctx context.Context, queryData *dbparse.Q
 	if len(plans) > 1 {
 		others := plans[1:]
 		for _, pp := range others {
-			p1 := NewProductPlan(plan, pp)
-			p2 := NewProductPlan(pp, plan)
-			if p1.BlockAccessed() < p2.BlockAccessed() {
-				plan = p1
+			if joined := q.tryIndexJoin(ctx, plan, pp, queryData, tx); joined != nil {
+				plan = joined
+			} else if joined := q.tryIndexJoin(ctx, pp, plan, queryData, tx); joined != nil {
+				plan = joined
 			} else {
-				plan = p2
+				p1 := NewProductPlan(plan, pp)
+				p2 := NewProductPlan(pp, plan)
+				if p1.BlockAccessed() < p2.BlockAccessed() {
+					plan = p1
+				} else {
+					plan = p2
+				}
 			}
 		}
 	}
 
 	plan = NewSelectPlan(plan, queryData.Predicate())
 	return NewProjectPlan(plan, queryData.Fields()), nil
+}
+
+// p1のカラムが、p2のテーブルにあるインデックス付きカラムとのjoinならIndexJoinを試みる
+func (q *BasicQueryPlanner) tryIndexJoin(ctx context.Context, p1, p2 dbquery.Plan, queryData *dbparse.QueryData, tx *dbtx.Transaction) dbquery.Plan {
+	tp2, ok := p2.(*TablePlan)
+	if !ok {
+		return nil
+	}
+	indexes, err := q.metadataManager.GetIndexInfo(ctx, tp2.tableName, tx)
+	if err != nil {
+		return nil
+	}
+	for fieldName, ii := range indexes {
+		joinField := queryData.Predicate().EquatesWithFieldName(fieldName)
+		if joinField != "" && p1.Schema().HasField(joinField) {
+			return NewIndexJoinPlan(p1, p2, ii, joinField)
+		}
+	}
+	return nil
 }

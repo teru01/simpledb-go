@@ -68,7 +68,7 @@ func (s *SimpleDB) Init(ctx context.Context) error {
 	s.metadataManager = m
 
 	qp := dbplan.NewQueryPlanner(s.metadataManager)
-	up := dbplan.NewUpdatePlanner(s.metadataManager)
+	up := dbplan.NewIndexUpdatePlanner(s.metadataManager)
 	s.planner = dbplan.NewPlanner(qp, up)
 
 	if err := tx.Commit(); err != nil {
