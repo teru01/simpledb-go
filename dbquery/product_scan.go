@@ -8,8 +8,9 @@ import (
 )
 
 type ProductScan struct {
-	scan1 Scan
-	scan2 Scan
+	scan1    Scan
+	scan2    Scan
+	s1Exists bool
 }
 
 func NewProductScan(scan1 Scan, scan2 Scan) *ProductScan {
@@ -22,16 +23,20 @@ func (s *ProductScan) SetStateToBeforeFirst(ctx context.Context) error {
 	if err := s.scan1.SetStateToBeforeFirst(ctx); err != nil {
 		return fmt.Errorf("set state to before first: %w", err)
 	}
-	_, err := s.scan1.Next(ctx)
+	ok, err := s.scan1.Next(ctx)
 	if err != nil {
 		return fmt.Errorf("next scan1: %w", err)
 	}
+	s.s1Exists = ok
 	return s.scan2.SetStateToBeforeFirst(ctx)
 }
 
 // s1を固定し、s2をすべて読み込んだら、s1を1つ進める
 // s1とs2のレコードをすべて読み込んだら、falseを返す
 func (s *ProductScan) Next(ctx context.Context) (bool, error) {
+	if !s.s1Exists {
+		return false, nil
+	}
 	s2ok, err := s.scan2.Next(ctx)
 	if err != nil {
 		return false, fmt.Errorf("next: %w", err)

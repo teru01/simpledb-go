@@ -30,7 +30,11 @@ func (p *ProductPlan) Open(ctx context.Context) (dbquery.Scan, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open plan2: %w", err)
 	}
-	return dbquery.NewProductScan(scan1, scan2), nil
+	ps := dbquery.NewProductScan(scan1, scan2)
+	if err := ps.SetStateToBeforeFirst(ctx); err != nil {
+		return nil, fmt.Errorf("set state to before first: %w", err)
+	}
+	return ps, nil
 }
 
 func (p *ProductPlan) BlockAccessed() int {

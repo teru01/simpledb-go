@@ -328,3 +328,55 @@ func TestProductScanEmptyTable(t *testing.T) {
 		t.Errorf("expected no records when one table is empty")
 	}
 }
+
+func TestProductScanEmptyScan1(t *testing.T) {
+	tx, layout1, layout2, tableName1, tableName2, cleanup := setupProductScanTest(t)
+	defer cleanup()
+
+	ctx := context.Background()
+
+	// ts1 is empty - no inserts
+	ts1, err := dbrecord.NewTableScan(ctx, tx, tableName1, layout1)
+	if err != nil {
+		t.Fatalf("failed to create table scan 1: %v", err)
+	}
+
+	// ts2 has data
+	ts2, err := dbrecord.NewTableScan(ctx, tx, tableName2, layout2)
+	if err != nil {
+		t.Fatalf("failed to create table scan 2: %v", err)
+	}
+
+	for _, o := range []struct {
+		id     int
+		amount int
+	}{
+		{101, 1000},
+		{102, 2000},
+	} {
+		if err := ts2.Insert(ctx); err != nil {
+			t.Fatalf("failed to insert order: %v", err)
+		}
+		if err := ts2.SetInt(ctx, "order_id", o.id); err != nil {
+			t.Fatalf("failed to set order_id: %v", err)
+		}
+		if err := ts2.SetInt(ctx, "amount", o.amount); err != nil {
+			t.Fatalf("failed to set amount: %v", err)
+		}
+	}
+
+	productScan := dbquery.NewProductScan(ts1, ts2)
+	if err := productScan.SetStateToBeforeFirst(ctx); err != nil {
+		t.Fatalf("failed to set state to before first: %v", err)
+	}
+	defer productScan.Close(ctx)
+
+	// Cartesian product with empty scan1 should yield no results
+	ok, err := productScan.Next(ctx)
+	if err != nil {
+		t.Fatalf("failed to move to next: %v", err)
+	}
+	if ok {
+		t.Errorf("expected no records when scan1 is empty")
+	}
+}
