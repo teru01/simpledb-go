@@ -104,7 +104,7 @@ func queryRows(t *testing.T, db *SimpleDB, ctx context.Context, sql string) [][]
 
 func execUpdate(t *testing.T, db *SimpleDB, ctx context.Context, sql string) {
 	t.Helper()
-	if err := db.Execute(ctx, sql); err != nil {
+	if _, err := db.Execute(ctx, sql); err != nil {
 		t.Fatalf("failed to execute %q: %v", sql, err)
 	}
 }

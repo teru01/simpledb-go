@@ -70,10 +70,60 @@ func main() {
 			continue
 		}
 
-		if err := db.Execute(ctx, line); err != nil {
+		result, err := db.Execute(ctx, line)
+		if err != nil {
 			fmt.Fprintf(os.Stderr, "error: %v\n", err)
+			continue
+		}
+		printResult(result)
+	}
+}
+
+func printResult(r *dbexecutor.ExecuteResult) {
+	if len(r.Fields) == 0 {
+		fmt.Println(r.Tag)
+		return
+	}
+	// calculate column widths
+	widths := make([]int, len(r.Fields))
+	for i, f := range r.Fields {
+		widths[i] = len(f)
+	}
+	for _, row := range r.Rows {
+		for i, v := range row {
+			if len(v) > widths[i] {
+				widths[i] = len(v)
+			}
 		}
 	}
+	// header
+	header := make([]string, len(r.Fields))
+	for i, f := range r.Fields {
+		header[i] = padRight(f, widths[i])
+	}
+	fmt.Println(strings.Join(header, " | "))
+	// separator
+	sep := make([]string, len(r.Fields))
+	for i, w := range widths {
+		sep[i] = strings.Repeat("-", w)
+	}
+	fmt.Println(strings.Join(sep, "-+-"))
+	// rows
+	for _, row := range r.Rows {
+		cols := make([]string, len(r.Fields))
+		for i, v := range row {
+			cols[i] = padRight(v, widths[i])
+		}
+		fmt.Println(strings.Join(cols, " | "))
+	}
+	fmt.Printf("(%d rows)\n", len(r.Rows))
+}
+
+func padRight(s string, width int) string {
+	if len(s) >= width {
+		return s
+	}
+	return s + strings.Repeat(" ", width-len(s))
 }
 
 func getEnvOrDefault(key, defaultVal string) string {

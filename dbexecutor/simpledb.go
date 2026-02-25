@@ -18,6 +18,18 @@ import (
 	"github.com/teru01/simpledb-go/dbtx"
 )
 
+// ExecuteResult represents the result of a SQL execution.
+type ExecuteResult struct {
+	// Tag is the command tag (e.g. "SELECT 3", "INSERT 0 1", "CREATE TABLE", "BEGIN", "COMMIT").
+	Tag string
+	// Fields holds column names for SELECT results.
+	Fields []string
+	// FieldTypes holds column types (dbrecord.FieldTypeInt or dbrecord.FieldTypeString) for SELECT results.
+	FieldTypes []int
+	// Rows holds the result rows as string values for SELECT results.
+	Rows [][]string
+}
+
 type SimpleDB struct {
 	fileManager     *dbfile.FileManager
 	logManager      *dblog.LogManager
@@ -77,32 +89,32 @@ func (s *SimpleDB) Init(ctx context.Context) error {
 	return nil
 }
 
-func (s *SimpleDB) Execute(ctx context.Context, sql string) error {
+func (s *SimpleDB) Execute(ctx context.Context, sql string) (*ExecuteResult, error) {
 	if matchStartTx(sql) {
 		tx, err := dbtx.NewTransaction(s.fileManager, s.logManager, s.bufferManager)
 		if err != nil {
-			return fmt.Errorf("create transaction: %w", err)
+			return nil, fmt.Errorf("create transaction: %w", err)
 		}
 		s.explicitTx = tx
-		return nil
+		return &ExecuteResult{Tag: "BEGIN"}, nil
 	} else if matchCommit(sql) {
 		if s.explicitTx == nil {
-			return fmt.Errorf("no transactions yet.")
+			return nil, fmt.Errorf("no transactions yet.")
 		}
 		if err := s.explicitTx.Commit(); err != nil {
-			return fmt.Errorf("commit: %w", err)
+			return nil, fmt.Errorf("commit: %w", err)
 		}
 		s.explicitTx = nil
-		return nil
+		return &ExecuteResult{Tag: "COMMIT"}, nil
 	} else if matchRollback(sql) {
 		if s.explicitTx == nil {
-			return fmt.Errorf("no transactions yet.")
+			return nil, fmt.Errorf("no transactions yet.")
 		}
 		if err := s.explicitTx.Rollback(ctx); err != nil {
-			return fmt.Errorf("rollback: %w", err)
+			return nil, fmt.Errorf("rollback: %w", err)
 		}
 		s.explicitTx = nil
-		return nil
+		return &ExecuteResult{Tag: "ROLLBACK"}, nil
 	}
 
 	var (
@@ -114,72 +126,79 @@ func (s *SimpleDB) Execute(ctx context.Context, sql string) error {
 	} else {
 		tx, err = dbtx.NewTransaction(s.fileManager, s.logManager, s.bufferManager)
 		if err != nil {
-			return fmt.Errorf("create transaction: %w", err)
+			return nil, fmt.Errorf("create transaction: %w", err)
 		}
 	}
 
+	var result *ExecuteResult
 	if matchSelect(sql) {
-		if err := s.execQuery(ctx, tx, sql); err != nil {
+		result, err = s.execQuery(ctx, tx, sql)
+		if err != nil {
 			s.explicitTx = nil
-			if err := tx.Rollback(ctx); err != nil {
-				return err
+			if rbErr := tx.Rollback(ctx); rbErr != nil {
+				return nil, rbErr
 			}
-			return err
+			return nil, err
 		}
 	} else {
 		n, err := s.planner.ExecuteUpdate(ctx, sql, tx)
 		if err != nil {
 			s.explicitTx = nil
-			if err := tx.Rollback(ctx); err != nil {
-				return err
+			if rbErr := tx.Rollback(ctx); rbErr != nil {
+				return nil, rbErr
 			}
-			return err
+			return nil, err
 		}
-		fmt.Printf("%d row(s) affected\n", n)
+		result = &ExecuteResult{Tag: updateTag(sql, n)}
 	}
 
 	if s.explicitTx != nil {
-		return nil
+		return result, nil
 	}
-	return tx.Commit()
+	return result, tx.Commit()
 }
 
-func (s *SimpleDB) execQuery(ctx context.Context, tx *dbtx.Transaction, sql string) error {
+func (s *SimpleDB) execQuery(ctx context.Context, tx *dbtx.Transaction, sql string) (*ExecuteResult, error) {
 	plan, err := s.planner.CreateQueryPlan(ctx, sql, tx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	scan, err := plan.Open(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer scan.Close(ctx)
 
 	schema := plan.Schema()
 	fields := schema.Fields()
 
+	fieldTypes := make([]int, len(fields))
+	for i, f := range fields {
+		fieldTypes[i] = schema.FieldType(f)
+	}
+
 	var rows [][]string
 	for {
 		ok, err := scan.Next(ctx)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if !ok {
 			break
 		}
 		row := make([]string, 0, len(fields))
-		for _, f := range fields {
-			switch schema.FieldType(f) {
+		for i, f := range fields {
+			switch fieldTypes[i] {
 			case dbrecord.FieldTypeInt:
 				v, err := scan.GetInt(ctx, f)
 				if err != nil {
-					return err
+					return nil, err
 				}
 				row = append(row, strconv.Itoa(v))
 			case dbrecord.FieldTypeString:
 				v, err := scan.GetString(ctx, f)
 				if err != nil {
-					return err
+					return nil, err
 				}
 				row = append(row, v)
 			}
@@ -187,51 +206,32 @@ func (s *SimpleDB) execQuery(ctx context.Context, tx *dbtx.Transaction, sql stri
 		rows = append(rows, row)
 	}
 
-	// calculate column widths
-	widths := make([]int, len(fields))
-	for i, f := range fields {
-		widths[i] = len(f)
-	}
-	for _, row := range rows {
-		for i, v := range row {
-			if len(v) > widths[i] {
-				widths[i] = len(v)
-			}
-		}
-	}
-
-	// print header
-	header := make([]string, len(fields))
-	for i, f := range fields {
-		header[i] = padRight(f, widths[i])
-	}
-	fmt.Println(strings.Join(header, " | "))
-
-	// print separator
-	sep := make([]string, len(fields))
-	for i, w := range widths {
-		sep[i] = strings.Repeat("-", w)
-	}
-	fmt.Println(strings.Join(sep, "-+-"))
-
-	// print rows
-	for _, row := range rows {
-		cols := make([]string, len(fields))
-		for i, v := range row {
-			cols[i] = padRight(v, widths[i])
-		}
-		fmt.Println(strings.Join(cols, " | "))
-	}
-
-	fmt.Printf("%d row(s)\n", len(rows))
-	return nil
+	return &ExecuteResult{
+		Tag:        fmt.Sprintf("SELECT %d", len(rows)),
+		Fields:     fields,
+		FieldTypes: fieldTypes,
+		Rows:       rows,
+	}, nil
 }
 
-func padRight(s string, width int) string {
-	if len(s) >= width {
-		return s
+func updateTag(sql string, n int) string {
+	lower := strings.ToLower(sql)
+	switch {
+	case strings.HasPrefix(lower, "insert"):
+		return fmt.Sprintf("INSERT 0 %d", n)
+	case strings.HasPrefix(lower, "update"):
+		return fmt.Sprintf("UPDATE %d", n)
+	case strings.HasPrefix(lower, "delete"):
+		return fmt.Sprintf("DELETE %d", n)
+	case strings.HasPrefix(lower, "create table"):
+		return "CREATE TABLE"
+	case strings.HasPrefix(lower, "create view"):
+		return "CREATE VIEW"
+	case strings.HasPrefix(lower, "create index"):
+		return "CREATE INDEX"
+	default:
+		return fmt.Sprintf("UPDATE %d", n)
 	}
-	return s + strings.Repeat(" ", width-len(s))
 }
 
 func matchSelect(sql string) bool {
