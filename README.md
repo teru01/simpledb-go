@@ -2,13 +2,24 @@
 
 Go implementation of SimpleDB in [Database Design and Implementation: Second Edition](https://www.amazon.co.jp/dp/B085DZM79S)
 
-## Example
+## Usage
 
-### Start
+### REPL mode (default)
 
 ```
 $ BASE_DIR=/tmp/simpledb ./simpledb
 ```
+
+### PostgreSQL wire protocol mode
+
+Start the server and connect with `psql`:
+
+```
+$ MODE=server LISTEN_ADDR=:5432 BASE_DIR=/tmp/simpledb ./simpledb
+$ psql -h localhost -p 5432
+```
+
+## Example
 
 ### INSERT/SELECT
 ```
