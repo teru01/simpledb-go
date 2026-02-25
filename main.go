@@ -12,6 +12,7 @@ import (
 
 	"github.com/chzyer/readline"
 	"github.com/teru01/simpledb-go/dbexecutor"
+	"github.com/teru01/simpledb-go/dbserver"
 )
 
 func main() {
@@ -41,11 +42,20 @@ func main() {
 
 	slog.Info("simpledb started", "dir", dirName, "blockSize", blockSize, "bufferSize", bufferSize)
 
-	replMode := getEnvOrDefault("REPL_MODE", "true")
-	if replMode != "true" {
-		return
+	mode := getEnvOrDefault("MODE", "repl")
+	switch mode {
+	case "server":
+		addr := getEnvOrDefault("LISTEN_ADDR", ":5432")
+		if err := dbserver.StartServer(ctx, addr, db); err != nil {
+			slog.Error("server error", "error", err)
+			os.Exit(1)
+		}
+	default:
+		runREPL(ctx, db, dirName)
 	}
+}
 
+func runREPL(ctx context.Context, db *dbexecutor.SimpleDB, dirName string) {
 	rl, err := readline.NewEx(&readline.Config{
 		Prompt:      "> ",
 		HistoryFile: filepath.Join(dirName, ".simpledb_history"),
