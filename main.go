@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/chzyer/readline"
+	"github.com/teru01/simpledb-go/dbexecutor"
 )
 
 func main() {
@@ -25,7 +26,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	db, cleanup, err := NewSimpleDB(dirName, blockSize, bufferSize)
+	db, cleanup, err := dbexecutor.NewSimpleDB(dirName, blockSize, bufferSize)
 	if err != nil {
 		slog.Error("failed to create simpledb", "error", err)
 		os.Exit(1)
