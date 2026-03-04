@@ -18,7 +18,6 @@ import (
 	"github.com/teru01/simpledb-go/dbtx"
 )
 
-// ExecuteResult represents the result of a SQL execution.
 type ExecuteResult struct {
 	// Tag is the command tag (e.g. "SELECT 3", "INSERT 0 1", "CREATE TABLE", "BEGIN", "COMMIT").
 	Tag string
@@ -96,7 +95,7 @@ func (s *SimpleDB) Execute(ctx context.Context, sql string) (*ExecuteResult, err
 			return nil, fmt.Errorf("create transaction: %w", err)
 		}
 		s.explicitTx = tx
-		return &ExecuteResult{Tag: "BEGIN"}, nil
+		return &ExecuteResult{Tag: "START TRANSACTION"}, nil
 	} else if matchCommit(sql) {
 		if s.explicitTx == nil {
 			return nil, fmt.Errorf("no transactions yet.")
@@ -218,7 +217,7 @@ func updateTag(sql string, n int) string {
 	lower := strings.ToLower(sql)
 	switch {
 	case strings.HasPrefix(lower, "insert"):
-		return fmt.Sprintf("INSERT 0 %d", n)
+		return fmt.Sprintf("INSERT %d", n)
 	case strings.HasPrefix(lower, "update"):
 		return fmt.Sprintf("UPDATE %d", n)
 	case strings.HasPrefix(lower, "delete"):

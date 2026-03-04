@@ -60,7 +60,7 @@ func handleStartup(conn net.Conn) error {
 				return fmt.Errorf("read sslRequest code: %w", err)
 			}
 			if sslRequestCode == SSLRequestMessageCode {
-				// Deny SSL, client will retry with StartupMessage
+				// SSLは無視
 				if _, err := conn.Write([]byte("N")); err != nil {
 					return fmt.Errorf("respond N for ssl request: %w", err)
 				}
@@ -157,7 +157,6 @@ func readQuery(conn io.ReadWriter) (sql string, terminate bool, err error) {
 	}
 }
 
-// writeResult sends the query result back to the client using the PostgreSQL wire protocol.
 func writeResult(conn net.Conn, result *dbexecutor.ExecuteResult) error {
 	// For SELECT queries, send RowDescription + DataRows
 	if len(result.Fields) > 0 {
