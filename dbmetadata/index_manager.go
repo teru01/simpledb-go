@@ -234,3 +234,7 @@ func (i *IndexInfo) TableName() string {
 func (i *IndexInfo) FieldName() string {
 	return i.fieldName
 }
+
+func (i *IndexInfo) IndexLayout() *dbrecord.Layout {
+	return i.indexLayout
+}

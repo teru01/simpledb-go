@@ -159,12 +159,12 @@ func (b *BTreeIndex) Insert(ctx context.Context, dataValue dbconstant.Constant, 
 			err = errors.Join(err, fmt.Errorf("close root dir: %w", closeErr))
 		}
 	}()
-	splittedRoot, err := rootDir.Insert(ctx, entry)
+	newEntry, err := rootDir.Insert(ctx, entry)
 	if err != nil {
 		return fmt.Errorf("insert dir: %w", err)
 	}
-	if splittedRoot != nil {
-		if err := rootDir.MakeNewRoot(ctx, splittedRoot); err != nil {
+	if newEntry != nil {
+		if err := rootDir.MakeNewRoot(ctx, newEntry); err != nil {
 			return fmt.Errorf("make new root: %w", err)
 		}
 	}

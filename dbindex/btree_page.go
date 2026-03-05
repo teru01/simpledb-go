@@ -121,7 +121,7 @@ func (b *BTreePage) AppendNew(ctx context.Context, flag int) (dbfile.BlockID, er
 		return dbfile.BlockID{}, fmt.Errorf("format: %w", err)
 	}
 	if err := b.tx.UnPin(blk); err != nil {
-		return dbfile.BlockID{}, fmt.Errorf("pin: %w", err)
+		return dbfile.BlockID{}, fmt.Errorf("unpin: %w", err)
 	}
 	return blk, nil
 }
@@ -335,9 +335,9 @@ func (b *BTreePage) transferRecords(ctx context.Context, slot int, dest *BTreePa
 		}
 		sch := b.layout.Schema()
 		for _, fieldName := range sch.Fields() {
-			val, err := b.getValue(ctx, slot, fieldName)
+			val, err := b.getValue(ctx, i, fieldName)
 			if err != nil {
-				return fmt.Errorf("get value from %q: %w", slot, err)
+				return fmt.Errorf("get value from %q: %w", i, err)
 			}
 			if err := dest.setValue(ctx, destSlot, fieldName, val); err != nil {
 				return fmt.Errorf("set value to %q: %w", destSlot, err)

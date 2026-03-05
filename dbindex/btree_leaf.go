@@ -48,17 +48,18 @@ func (b *BTreeLeaf) Next(ctx context.Context) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("next: %w", err)
 	}
-	c, err := b.contents.GetDataValue(ctx, b.currentSlot)
-	if err != nil {
-		return false, fmt.Errorf("get data value in the index: %w", err)
-	}
 	if b.currentSlot >= n {
 		isOverFlow, err := b.tryOverflow(ctx)
 		if err != nil {
 			return false, fmt.Errorf("try overflow in next curret slot(%q): %w", b.currentSlot, err)
 		}
 		return isOverFlow, nil
-	} else if c.Equals(b.searchKey) {
+	}
+	c, err := b.contents.GetDataValue(ctx, b.currentSlot)
+	if err != nil {
+		return false, fmt.Errorf("get data value in the index: %w", err)
+	}
+	if c.Equals(b.searchKey) {
 		return true, nil
 	} else {
 		// ブロックの端まで行ってないが、検索キーと一致しないとき

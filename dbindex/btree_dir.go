@@ -66,7 +66,7 @@ func (b *BTreeDir) Search(ctx context.Context, searchKey dbconstant.Constant) (i
 }
 
 // 新しいRootを作り木の深さを増やす
-// rootは常にold rootと分割先のdirを持つ
+// rootは常にblock: 0が担当する。old rootと分割先のdirへの参照を持つようになる
 func (b *BTreeDir) MakeNewRoot(ctx context.Context, entry *DirEntry) error {
 	firstVal, err := b.contents.GetDataValue(ctx, 0)
 	if err != nil {
@@ -96,7 +96,7 @@ func (b *BTreeDir) MakeNewRoot(ctx context.Context, entry *DirEntry) error {
 }
 
 // Dirを再起的に挿入する
-// leafが分割された時に呼ばれる
+// leafが分割され、新たなblockが生まれた時にそのエントリを登録するために必要
 func (b *BTreeDir) Insert(ctx context.Context, entry *DirEntry) (result *DirEntry, err error) {
 	flag, err := b.contents.GetFlag(ctx)
 	if err != nil {
@@ -179,7 +179,7 @@ func (b *BTreeDir) findChildBlock(ctx context.Context, searchKey dbconstant.Cons
 	if err != nil {
 		return dbfile.BlockID{}, fmt.Errorf("gat data value: %w", err)
 	}
-	if val == searchKey {
+	if val.Equals(searchKey) {
 		slot++
 	}
 

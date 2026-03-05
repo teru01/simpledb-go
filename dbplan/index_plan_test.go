@@ -5,9 +5,12 @@ import (
 	"testing"
 
 	"github.com/teru01/simpledb-go/dbconstant"
+	"github.com/teru01/simpledb-go/dbfile"
+	"github.com/teru01/simpledb-go/dbname"
 	"github.com/teru01/simpledb-go/dbparse"
 	"github.com/teru01/simpledb-go/dbplan"
 	"github.com/teru01/simpledb-go/dbrecord"
+	"github.com/teru01/simpledb-go/dbsize"
 )
 
 // --- IndexSelectPlan tests ---
@@ -764,6 +767,223 @@ func TestIndexUpdatePlannerModify(t *testing.T) {
 			t.Errorf("expected val=30 for id=3, got %d", val)
 		}
 	}
+}
+
+func TestIndexSelectPlanDuplicateKeys(t *testing.T) {
+	mm, tx, cleanup := setupQueryPlannerTest(t)
+	defer cleanup()
+
+	ctx := context.Background()
+
+	schema := dbrecord.NewSchema()
+	schema.AddIntField("id")
+	schema.AddStringField("name", 10)
+
+	if err := mm.CreateTable(ctx, "animals", schema, tx); err != nil {
+		t.Fatalf("failed to create table: %v", err)
+	}
+
+	layout, err := mm.GetLayout(ctx, "animals", tx)
+	if err != nil {
+		t.Fatalf("failed to get layout: %v", err)
+	}
+
+	ts, err := dbrecord.NewTableScan(ctx, tx, "animals", layout)
+	if err != nil {
+		t.Fatalf("failed to create table scan: %v", err)
+	}
+
+	allNames := []string{"bear", "bird", "cat", "cow", "dog", "fish", "frog", "goat", "lion", "sheep"}
+	totalRecords := 100
+	expectedGoats := 0
+	for i := range totalRecords {
+		name := allNames[i%len(allNames)]
+		if name == "goat" {
+			expectedGoats++
+		}
+	}
+
+	for i := range totalRecords {
+		name := allNames[i%len(allNames)]
+		if err := ts.Insert(ctx); err != nil {
+			t.Fatalf("failed to insert: %v", err)
+		}
+		if err := ts.SetInt(ctx, "id", i+1); err != nil {
+			t.Fatalf("failed to set id: %v", err)
+		}
+		if err := ts.SetString(ctx, "name", name); err != nil {
+			t.Fatalf("failed to set name: %v", err)
+		}
+	}
+	ts.Close(ctx)
+
+	if err := mm.CreateIndex(ctx, "idx_animals_name", "animals", "name", tx); err != nil {
+		t.Fatalf("failed to create index: %v", err)
+	}
+
+	indexInfos, err := mm.GetIndexInfo(ctx, "animals", tx)
+	if err != nil {
+		t.Fatalf("failed to get index info: %v", err)
+	}
+	idxInfo := indexInfos["name"]
+
+	tablePlan, err := dbplan.NewTablePlan(ctx, tx, "animals", mm)
+	if err != nil {
+		t.Fatalf("failed to create table plan: %v", err)
+	}
+
+	idx, err := idxInfo.Open(ctx)
+	if err != nil {
+		t.Fatalf("failed to open index: %v", err)
+	}
+	defer idx.Close(ctx)
+
+	searchKey := dbconstant.NewStringConstant("goat")
+	if err := idx.BeforeFirst(ctx, searchKey); err != nil {
+		t.Fatalf("failed to before first: %v", err)
+	}
+
+	// leaf ブロックを直接スキャンして実際の格納件数を確認
+	leafTable := idxInfo.IndexName() + "leaf"
+	leafLayout := idxInfo.IndexLayout()
+	leafSize, err := tx.Size(ctx, leafTable)
+	if err != nil {
+		t.Fatalf("failed to get leaf table size: %v", err)
+	}
+	storedCounts := make(map[string]int)
+	totalStored := 0
+	for blkNum := range leafSize {
+		blk := dbfile.NewBlockID(leafTable, blkNum)
+		if err := tx.Pin(ctx, blk); err != nil {
+			t.Fatalf("failed to pin block %d: %v", blkNum, err)
+		}
+		n, err := tx.GetInt(ctx, blk, dbsize.IntSize)
+		if err != nil {
+			t.Fatalf("failed to get num records for block %d: %v", blkNum, err)
+		}
+		slotSize := leafLayout.SlotSize()
+		for slot := range n {
+			offset := dbsize.IntSize*2 + slotSize*slot + leafLayout.Offset(dbname.IndexFieldDataValue)
+			val, err := tx.GetString(ctx, blk, offset)
+			if err != nil {
+				t.Fatalf("failed to get data value: %v", err)
+			}
+			storedCounts[val]++
+			totalStored++
+		}
+		if err := tx.UnPin(blk); err != nil {
+			t.Fatalf("failed to unpin block %d: %v", blkNum, err)
+		}
+	}
+	t.Log("=== Leaf contents (direct scan) ===")
+	for _, name := range allNames {
+		t.Logf("  stored %q: %d", name, storedCounts[name])
+	}
+	t.Logf("total stored: %d (expected %d)", totalStored, totalRecords)
+
+	// dog の RID を全件ダンプして重複を確認
+	t.Log("=== Dog entries in leaf (direct scan) ===")
+	type rid struct{ blk, id int }
+	dogRIDs := make(map[rid]int)
+	for blkNum := range leafSize {
+		blk := dbfile.NewBlockID(leafTable, blkNum)
+		if err := tx.Pin(ctx, blk); err != nil {
+			t.Fatalf("failed to pin block %d: %v", blkNum, err)
+		}
+		n, err := tx.GetInt(ctx, blk, dbsize.IntSize)
+		if err != nil {
+			t.Fatalf("failed to get num records: %v", err)
+		}
+		slotSize := leafLayout.SlotSize()
+		for slot := range n {
+			base := dbsize.IntSize*2 + slotSize*slot
+			val, err := tx.GetString(ctx, blk, base+leafLayout.Offset(dbname.IndexFieldDataValue))
+			if err != nil {
+				t.Fatalf("failed to get data value: %v", err)
+			}
+			if val != "dog" {
+				continue
+			}
+			ridBlk, err := tx.GetInt(ctx, blk, base+leafLayout.Offset(dbname.IndexFieldBlock))
+			if err != nil {
+				t.Fatalf("failed to get rid block: %v", err)
+			}
+			ridID, err := tx.GetInt(ctx, blk, base+leafLayout.Offset(dbname.IndexFieldID))
+			if err != nil {
+				t.Fatalf("failed to get rid id: %v", err)
+			}
+			r := rid{ridBlk, ridID}
+			dogRIDs[r]++
+			t.Logf("  leaf block %d, slot %d: dog -> RID[block=%d, slot=%d]", blkNum, slot, ridBlk, ridID)
+		}
+		if err := tx.UnPin(blk); err != nil {
+			t.Fatalf("failed to unpin: %v", err)
+		}
+	}
+	dupCount := 0
+	for r, cnt := range dogRIDs {
+		if cnt > 1 {
+			t.Logf("  DUPLICATE: RID[block=%d, slot=%d] appears %d times", r.blk, r.id, cnt)
+			dupCount++
+		}
+	}
+	t.Logf("dog unique RIDs: %d, duplicated RIDs: %d, total entries: %d", len(dogRIDs), dupCount, storedCounts["dog"])
+
+	// 検索結果の件数
+	t.Log("=== Search results ===")
+	allCount := 0
+	for _, name := range allNames {
+		key := dbconstant.NewStringConstant(name)
+		idx2, err := idxInfo.Open(ctx)
+		if err != nil {
+			t.Fatalf("failed to open index for %s: %v", name, err)
+		}
+		if err := idx2.BeforeFirst(ctx, key); err != nil {
+			t.Fatalf("failed to before first for %s: %v", name, err)
+		}
+		c := 0
+		for {
+			ok, err := idx2.Next(ctx)
+			if err != nil {
+				t.Fatalf("failed to next for %s: %v", name, err)
+			}
+			if !ok {
+				break
+			}
+			c++
+		}
+		t.Logf("  search %q: %d", name, c)
+		allCount += c
+		idx2.Close(ctx)
+	}
+	t.Logf("total search results: %d (expected %d)", allCount, totalRecords)
+
+	if err := idx.BeforeFirst(ctx, searchKey); err != nil {
+		t.Fatalf("failed to before first (retry): %v", err)
+	}
+
+	count := 0
+	for {
+		ok, err := idx.Next(ctx)
+		if err != nil {
+			t.Fatalf("failed to next: %v", err)
+		}
+		if !ok {
+			break
+		}
+		rid, err := idx.GetDataRID(ctx)
+		if err != nil {
+			t.Fatalf("failed to get data rid: %v", err)
+		}
+		t.Logf("goat found at RID=%v", rid)
+		count++
+	}
+
+	if count != expectedGoats {
+		t.Errorf("expected %d goats, got %d", expectedGoats, count)
+	}
+
+	_ = tablePlan
 }
 
 func TestIndexUpdatePlannerInsertMultiple(t *testing.T) {
