@@ -2,6 +2,7 @@ package dbindex
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 
@@ -37,6 +38,9 @@ func NewBTreeIndex(ctx context.Context, tx *dbtx.Transaction, idxName string, le
 		}
 		if err := node.Format(ctx, rootBlk, -1); err != nil {
 			return nil, fmt.Errorf("format: %w", err)
+		}
+		if err := node.Close(ctx); err != nil {
+			return nil, fmt.Errorf("close: %w", err)
 		}
 	}
 	dirSchema := dbrecord.NewSchema()
@@ -87,7 +91,7 @@ func NewBTreeIndex(ctx context.Context, tx *dbtx.Transaction, idxName string, le
 	}, nil
 }
 
-func (b *BTreeIndex) BeforeFirst(ctx context.Context, searchKey dbconstant.Constant) error {
+func (b *BTreeIndex) BeforeFirst(ctx context.Context, searchKey dbconstant.Constant) (err error) {
 	if err := b.Close(ctx); err != nil {
 		return fmt.Errorf("close: %w", err)
 	}
@@ -95,12 +99,14 @@ func (b *BTreeIndex) BeforeFirst(ctx context.Context, searchKey dbconstant.Const
 	if err != nil {
 		return fmt.Errorf("new btree dir: %w", err)
 	}
+	defer func() {
+		if closeErr := root.Close(ctx); closeErr != nil {
+			err = errors.Join(err, fmt.Errorf("close root: %w", closeErr))
+		}
+	}()
 	blockNum, err := root.Search(ctx, searchKey)
 	if err != nil {
 		return fmt.Errorf("search: %w", err)
-	}
-	if err := root.Close(ctx); err != nil {
-		return fmt.Errorf("close: %w", err)
 	}
 	leafBlock := dbfile.NewBlockID(b.leafTable, blockNum)
 	l, err := NewBTreeLeaf(ctx, b.tx, leafBlock, b.leafLayout, searchKey)
@@ -129,10 +135,11 @@ func (b *BTreeIndex) Close(ctx context.Context) error {
 }
 
 // インデックスに挿入する
-func (b *BTreeIndex) Insert(ctx context.Context, dataValue dbconstant.Constant, dataRID dbrecord.RID) error {
+func (b *BTreeIndex) Insert(ctx context.Context, dataValue dbconstant.Constant, dataRID dbrecord.RID) (err error) {
 	if err := b.BeforeFirst(ctx, dataValue); err != nil {
 		return fmt.Errorf("before first: %w", err)
 	}
+	// 挿入により生成された新たなDirEntry
 	entry, err := b.leaf.Insert(ctx, &dataRID)
 	if err != nil {
 		return fmt.Errorf("insert leaf: %w", err)
@@ -147,6 +154,11 @@ func (b *BTreeIndex) Insert(ctx context.Context, dataValue dbconstant.Constant, 
 	if err != nil {
 		return fmt.Errorf("init root dir: %w", err)
 	}
+	defer func() {
+		if closeErr := rootDir.Close(ctx); closeErr != nil {
+			err = errors.Join(err, fmt.Errorf("close root dir: %w", closeErr))
+		}
+	}()
 	splittedRoot, err := rootDir.Insert(ctx, entry)
 	if err != nil {
 		return fmt.Errorf("insert dir: %w", err)
@@ -155,9 +167,6 @@ func (b *BTreeIndex) Insert(ctx context.Context, dataValue dbconstant.Constant, 
 		if err := rootDir.MakeNewRoot(ctx, splittedRoot); err != nil {
 			return fmt.Errorf("make new root: %w", err)
 		}
-	}
-	if err := rootDir.Close(ctx); err != nil {
-		return fmt.Errorf("close root: %w", err)
 	}
 	return nil
 }

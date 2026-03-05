@@ -2,6 +2,7 @@ package dbindex
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/teru01/simpledb-go/dbconstant"
@@ -96,7 +97,7 @@ func (b *BTreeDir) MakeNewRoot(ctx context.Context, entry *DirEntry) error {
 
 // Dirを再起的に挿入する
 // leafが分割された時に呼ばれる
-func (b *BTreeDir) Insert(ctx context.Context, entry *DirEntry) (*DirEntry, error) {
+func (b *BTreeDir) Insert(ctx context.Context, entry *DirEntry) (result *DirEntry, err error) {
 	flag, err := b.contents.GetFlag(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("get flag: %w", err)
@@ -112,6 +113,11 @@ func (b *BTreeDir) Insert(ctx context.Context, entry *DirEntry) (*DirEntry, erro
 	if err != nil {
 		return nil, fmt.Errorf("new btree dir: %w", err)
 	}
+	defer func() {
+		if closeErr := bd.Close(ctx); closeErr != nil {
+			err = errors.Join(err, fmt.Errorf("close child dir: %w", closeErr))
+		}
+	}()
 	childSplittedEntry, err := bd.Insert(ctx, entry)
 	if err != nil {
 		return nil, fmt.Errorf("insert: %w", err)

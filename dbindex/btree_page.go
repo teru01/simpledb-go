@@ -25,9 +25,10 @@ func NewBTreePage(ctx context.Context, tx *dbtx.Transaction, blockID *dbfile.Blo
 	if err := tx.Pin(ctx, *blockID); err != nil {
 		return nil, fmt.Errorf("pin block %s: %w", blockID, err)
 	}
+	copied := *blockID
 	return &BTreePage{
 		tx:           tx,
-		currentBlock: blockID,
+		currentBlock: &copied,
 		layout:       layout,
 	}, nil
 }
@@ -59,7 +60,7 @@ func (b *BTreePage) FindSlotBefore(ctx context.Context, searchKey dbconstant.Con
 func (b *BTreePage) Close(ctx context.Context) error {
 	if b.currentBlock != nil {
 		if err := b.tx.UnPin(*b.currentBlock); err != nil {
-			return fmt.Errorf("close: %w", err)
+			return fmt.Errorf("unpin during close: %w", err)
 		}
 	}
 	b.currentBlock = nil
@@ -118,6 +119,9 @@ func (b *BTreePage) AppendNew(ctx context.Context, flag int) (dbfile.BlockID, er
 	}
 	if err := b.Format(ctx, blk, flag); err != nil {
 		return dbfile.BlockID{}, fmt.Errorf("format: %w", err)
+	}
+	if err := b.tx.UnPin(blk); err != nil {
+		return dbfile.BlockID{}, fmt.Errorf("pin: %w", err)
 	}
 	return blk, nil
 }
