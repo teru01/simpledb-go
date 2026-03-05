@@ -6,4 +6,4 @@ simpledb
 dbcmd/datagen/datagen
 .vscode
 CLAUDE.md
-benchmark
+/benchmark
