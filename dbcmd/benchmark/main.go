@@ -315,6 +315,7 @@ func benchCreateIndex(ctx context.Context, fm *dbfile.FileManager, lm *dblog.Log
 }
 
 func benchSelectByID(ctx context.Context, fm *dbfile.FileManager, lm *dblog.LogManager, bm *dbbuffer.BufferManager, planner *dbplan.Planner, records int, iterations int, label string) {
+	fm.ResetCounts()
 	start := time.Now()
 	count := 0
 	for i := range iterations {
@@ -327,6 +328,7 @@ func benchSelectByID(ctx context.Context, fm *dbfile.FileManager, lm *dblog.LogM
 		}
 	}
 	printResult(fmt.Sprintf("SELECT %s (%d lookups)", label, iterations), iterations, time.Since(start))
+	fmt.Printf("  disk I/O: read=%d  write=%d\n", fm.ReadCount(), fm.WriteCount())
 }
 
 func scanQuery(ctx context.Context, planner *dbplan.Planner, tx *dbtx.Transaction, sql string, count *int) error {

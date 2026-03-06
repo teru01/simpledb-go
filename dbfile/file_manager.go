@@ -17,6 +17,8 @@ type FileManager struct {
 	blockSize   int
 	isNew       bool
 	openFiles   map[string]*os.File
+	readCount   int64
+	writeCount  int64
 }
 
 func NewFileManager(dbDirectory *os.File, blockSize int) (*FileManager, error) {
@@ -58,6 +60,7 @@ func NewFileManager(dbDirectory *os.File, blockSize int) (*FileManager, error) {
 func (fm *FileManager) Read(blockID BlockID, p *Page) error {
 	fm.mu.Lock()
 	defer fm.mu.Unlock()
+	fm.readCount++
 	file, err := fm.getFile(blockID.FileName())
 	if err != nil {
 		return fmt.Errorf("get file handle for %q: %w", blockID.FileName(), err)
@@ -76,6 +79,7 @@ func (fm *FileManager) Read(blockID BlockID, p *Page) error {
 func (fm *FileManager) Write(blockID BlockID, p *Page) error {
 	fm.mu.Lock()
 	defer fm.mu.Unlock()
+	fm.writeCount++
 	file, err := fm.getFile(blockID.FileName())
 	if err != nil {
 		return fmt.Errorf("get file handle for %q: %w", blockID.FileName(), err)
@@ -138,6 +142,25 @@ func (fm *FileManager) IsNew() bool {
 // fixed value
 func (fm *FileManager) BlockSize() int {
 	return fm.blockSize
+}
+
+func (fm *FileManager) ReadCount() int64 {
+	fm.mu.Lock()
+	defer fm.mu.Unlock()
+	return fm.readCount
+}
+
+func (fm *FileManager) WriteCount() int64 {
+	fm.mu.Lock()
+	defer fm.mu.Unlock()
+	return fm.writeCount
+}
+
+func (fm *FileManager) ResetCounts() {
+	fm.mu.Lock()
+	defer fm.mu.Unlock()
+	fm.readCount = 0
+	fm.writeCount = 0
 }
 
 func (fm *FileManager) getFile(fileName string) (*os.File, error) {
