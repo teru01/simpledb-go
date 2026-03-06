@@ -101,6 +101,7 @@ func (s *StatManager) refreshStatisticsLocked(ctx context.Context, tx *dbtx.Tran
 		}
 		tableStats[tableName] = stats
 	}
+	s.tableStats = tableStats
 	return nil
 }
 
