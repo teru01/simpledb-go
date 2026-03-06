@@ -7,4 +7,4 @@ dbcmd/datagen/datagen
 .vscode
 CLAUDE.md
 /benchmark
-cpu.prof
+*.prof

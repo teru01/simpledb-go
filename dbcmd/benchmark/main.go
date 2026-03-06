@@ -23,6 +23,7 @@ type benchConfig struct {
 	blockSize  int
 	bufferSize int
 	records    int
+	iterations int
 	dataDir    string
 }
 
@@ -36,6 +37,7 @@ func main() {
 		blockSize:  getEnvIntOrDefault("BLOCK_SIZE", 4000),
 		bufferSize: getEnvIntOrDefault("BUFFER_SIZE", 100),
 		records:    getEnvIntOrDefault("RECORDS", 10000),
+		iterations: getEnvIntOrDefault("ITERATIONS", 100),
 		dataDir:    os.Getenv("DATA_DIR"),
 	}
 
@@ -111,7 +113,7 @@ func main() {
 	}
 
 	fmt.Printf("=== SimpleDB Benchmark (mode=%s) ===\n", mode)
-	fmt.Printf("records=%d  blockSize=%d  bufferSize=%d  dataDir=%s\n\n", cfg.records, cfg.blockSize, cfg.bufferSize, dirName)
+	fmt.Printf("records=%d  iterations=%d  blockSize=%d  bufferSize=%d  dataDir=%s\n\n", cfg.records, cfg.iterations, cfg.blockSize, cfg.bufferSize, dirName)
 
 	switch mode {
 	case "prepare":
@@ -119,9 +121,15 @@ func main() {
 		benchInsert(ctx, fm, lm, bm, planner, cfg.records)
 	case "index":
 		benchCreateIndex(ctx, fm, lm, bm, planner)
-		benchSelectWithIndex(ctx, fm, lm, bm, planner, cfg.records)
+		benchSelectByID(ctx, fm, lm, bm, planner, cfg.records, cfg.iterations, "by id")
 	case "select":
-		f, err := os.Create("cpu.prof")
+		profName := os.Getenv("PROF_NAME")
+		if profName == "" {
+			profName = "cpu.prof"
+		} else {
+			profName = "cpu-" + profName + ".prof"
+		}
+		f, err := os.Create(profName)
 		if err != nil {
 			slog.Error("failed to create cpu profile", "error", err)
 			os.Exit(1)
@@ -129,7 +137,7 @@ func main() {
 		defer f.Close()
 		pprof.StartCPUProfile(f)
 		defer pprof.StopCPUProfile()
-		benchSelectWithIndex(ctx, fm, lm, bm, planner, cfg.records)
+		benchSelectByID(ctx, fm, lm, bm, planner, cfg.records, cfg.iterations, "by id")
 	case "all":
 		benchCreateTable(ctx, fm, lm, bm, planner)
 		benchInsert(ctx, fm, lm, bm, planner, cfg.records)
@@ -140,9 +148,9 @@ func main() {
 
 		fmt.Printf("\n--- Index (id) ---\n\n")
 
-		benchSelectWithoutIndex(ctx, fm, lm, bm, planner, cfg.records)
+		benchSelectByID(ctx, fm, lm, bm, planner, cfg.records, cfg.iterations, "without index")
 		benchCreateIndex(ctx, fm, lm, bm, planner)
-		benchSelectWithIndex(ctx, fm, lm, bm, planner, cfg.records)
+		benchSelectByID(ctx, fm, lm, bm, planner, cfg.records, cfg.iterations, "with index")
 	}
 }
 
@@ -306,8 +314,7 @@ func benchCreateIndex(ctx context.Context, fm *dbfile.FileManager, lm *dblog.Log
 	printResult("CREATE INDEX on id", 1, time.Since(start))
 }
 
-func benchSelectWithIndex(ctx context.Context, fm *dbfile.FileManager, lm *dblog.LogManager, bm *dbbuffer.BufferManager, planner *dbplan.Planner, records int) {
-	iterations := 100
+func benchSelectByID(ctx context.Context, fm *dbfile.FileManager, lm *dblog.LogManager, bm *dbbuffer.BufferManager, planner *dbplan.Planner, records int, iterations int, label string) {
 	start := time.Now()
 	count := 0
 	for i := range iterations {
@@ -315,27 +322,11 @@ func benchSelectWithIndex(ctx context.Context, fm *dbfile.FileManager, lm *dblog
 		if err := execBench(ctx, fm, lm, bm, func(ctx context.Context, tx *dbtx.Transaction) error {
 			return scanQuery(ctx, planner, tx, fmt.Sprintf(`SELECT id, name, class FROM bench WHERE id = %d`, id), &count)
 		}); err != nil {
-			slog.Error("SELECT with index failed", "error", err)
+			slog.Error("SELECT failed", "error", err, "label", label)
 			return
 		}
 	}
-	printResult(fmt.Sprintf("SELECT with index (%d lookups)", iterations), iterations, time.Since(start))
-}
-
-func benchSelectWithoutIndex(ctx context.Context, fm *dbfile.FileManager, lm *dblog.LogManager, bm *dbbuffer.BufferManager, planner *dbplan.Planner, records int) {
-	iterations := 100
-	start := time.Now()
-	count := 0
-	for i := range iterations {
-		id := i%records + 1
-		if err := execBench(ctx, fm, lm, bm, func(ctx context.Context, tx *dbtx.Transaction) error {
-			return scanQuery(ctx, planner, tx, fmt.Sprintf(`SELECT id, name, class FROM bench WHERE id = %d`, id), &count)
-		}); err != nil {
-			slog.Error("SELECT without index failed", "error", err)
-			return
-		}
-	}
-	printResult(fmt.Sprintf("SELECT full scan (%d lookups)", iterations), iterations, time.Since(start))
+	printResult(fmt.Sprintf("SELECT %s (%d lookups)", label, iterations), iterations, time.Since(start))
 }
 
 func scanQuery(ctx context.Context, planner *dbplan.Planner, tx *dbtx.Transaction, sql string, count *int) error {
