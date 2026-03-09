@@ -8,3 +8,4 @@ dbcmd/datagen/datagen
 CLAUDE.md
 /benchmark
 *.prof
+tmp/

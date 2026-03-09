@@ -329,6 +329,9 @@ func benchSelectByID(ctx context.Context, fm *dbfile.FileManager, lm *dblog.LogM
 	}
 	printResult(fmt.Sprintf("SELECT %s (%d lookups)", label, iterations), iterations, time.Since(start))
 	fmt.Printf("  disk I/O: read=%d  write=%d\n", fm.ReadCount(), fm.WriteCount())
+	for file, count := range fm.ReadCountByFile() {
+		fmt.Printf("    %s: %d\n", file, count)
+	}
 }
 
 func scanQuery(ctx context.Context, planner *dbplan.Planner, tx *dbtx.Transaction, sql string, count *int) error {

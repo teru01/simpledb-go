@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	statRefreshInterval = 100
+	statRefreshInterval = 10000
 )
 
 type StatInfo struct {

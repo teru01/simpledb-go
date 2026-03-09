@@ -12,13 +12,14 @@ import (
 const defaultDirectory = "/tmp/simpledb"
 
 type FileManager struct {
-	mu          sync.Mutex
-	dbDirectory *os.File
-	blockSize   int
-	isNew       bool
-	openFiles   map[string]*os.File
-	readCount   int64
-	writeCount  int64
+	mu              sync.Mutex
+	dbDirectory     *os.File
+	blockSize       int
+	isNew           bool
+	openFiles       map[string]*os.File
+	readCount       int64
+	writeCount      int64
+	readCountByFile map[string]int64
 }
 
 func NewFileManager(dbDirectory *os.File, blockSize int) (*FileManager, error) {
@@ -50,10 +51,11 @@ func NewFileManager(dbDirectory *os.File, blockSize int) (*FileManager, error) {
 	}
 
 	return &FileManager{
-		dbDirectory: dbDirectory,
-		blockSize:   blockSize,
-		isNew:       isNew,
-		openFiles:   make(map[string]*os.File),
+		dbDirectory:     dbDirectory,
+		blockSize:       blockSize,
+		isNew:           isNew,
+		openFiles:       make(map[string]*os.File),
+		readCountByFile: make(map[string]int64),
 	}, nil
 }
 
@@ -61,6 +63,7 @@ func (fm *FileManager) Read(blockID BlockID, p *Page) error {
 	fm.mu.Lock()
 	defer fm.mu.Unlock()
 	fm.readCount++
+	fm.readCountByFile[blockID.FileName()]++
 	file, err := fm.getFile(blockID.FileName())
 	if err != nil {
 		return fmt.Errorf("get file handle for %q: %w", blockID.FileName(), err)
@@ -156,11 +159,22 @@ func (fm *FileManager) WriteCount() int64 {
 	return fm.writeCount
 }
 
+func (fm *FileManager) ReadCountByFile() map[string]int64 {
+	fm.mu.Lock()
+	defer fm.mu.Unlock()
+	m := make(map[string]int64, len(fm.readCountByFile))
+	for k, v := range fm.readCountByFile {
+		m[k] = v
+	}
+	return m
+}
+
 func (fm *FileManager) ResetCounts() {
 	fm.mu.Lock()
 	defer fm.mu.Unlock()
 	fm.readCount = 0
 	fm.writeCount = 0
+	fm.readCountByFile = make(map[string]int64)
 }
 
 func (fm *FileManager) getFile(fileName string) (*os.File, error) {
