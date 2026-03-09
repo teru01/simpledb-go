@@ -38,7 +38,7 @@ func (h *HashIndex) BeforeFirst(ctx context.Context, searchKey dbconstant.Consta
 	}
 	h.state.searchKey = searchKey
 	bucket := searchKey.HashCode() % HashIndexNumBuckets
-	ts, err := dbrecord.NewTableScan(ctx, h.tx, fmt.Sprintf("%s%d", h.indexName, bucket), h.layout)
+	ts, err := dbrecord.NewTableScan(ctx, h.tx, fmt.Sprintf("%s%d", h.indexName, bucket), h.layout, false)
 	if err != nil {
 		return fmt.Errorf("new table scan for index: %w", err)
 	}

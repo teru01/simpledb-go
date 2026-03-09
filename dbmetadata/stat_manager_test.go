@@ -81,7 +81,7 @@ func TestStatManagerGetStatInfo(t *testing.T) {
 	}
 
 	// Insert some test data
-	ts, err := dbrecord.NewTableScan(ctx, tx, "students", layout)
+	ts, err := dbrecord.NewTableScan(ctx, tx, "students", layout, false)
 	if err != nil {
 		t.Fatalf("failed to create table scan: %v", err)
 	}
@@ -142,7 +142,7 @@ func TestStatManagerMultipleTables(t *testing.T) {
 	}
 
 	// Insert records into first table
-	ts1, err := dbrecord.NewTableScan(ctx, tx, "table1", layout1)
+	ts1, err := dbrecord.NewTableScan(ctx, tx, "table1", layout1, false)
 	if err != nil {
 		t.Fatalf("failed to create table scan for table1: %v", err)
 	}
@@ -174,7 +174,7 @@ func TestStatManagerMultipleTables(t *testing.T) {
 	}
 
 	// Insert records into second table
-	ts2, err := dbrecord.NewTableScan(ctx, tx, "table2", layout2)
+	ts2, err := dbrecord.NewTableScan(ctx, tx, "table2", layout2, false)
 	if err != nil {
 		t.Fatalf("failed to create table scan for table2: %v", err)
 	}
@@ -273,7 +273,7 @@ func TestStatManagerCalcDistinctValues(t *testing.T) {
 	}
 
 	// Insert 1000 records
-	ts, err := dbrecord.NewTableScan(ctx, tx, "students", layout)
+	ts, err := dbrecord.NewTableScan(ctx, tx, "students", layout, false)
 	if err != nil {
 		t.Fatalf("failed to create table scan: %v", err)
 	}

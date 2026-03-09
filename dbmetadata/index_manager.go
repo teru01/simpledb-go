@@ -56,7 +56,7 @@ func NewIndexManager(ctx context.Context, tableManager *TableManager, statManage
 
 func (i *IndexManager) CreateIndex(ctx context.Context, indexName string, tableName string, fieldName string, tx *dbtx.Transaction) error {
 	// register index in catalog
-	ts, err := dbrecord.NewTableScan(ctx, tx, IndexCatalogTableName, i.layout)
+	ts, err := dbrecord.NewTableScan(ctx, tx, IndexCatalogTableName, i.layout, true)
 	if err != nil {
 		return fmt.Errorf("new table scan for %q: %w", IndexCatalogTableName, err)
 	}
@@ -95,7 +95,7 @@ func (i *IndexManager) CreateIndex(ctx context.Context, indexName string, tableN
 	}
 	defer idx.Close(ctx)
 
-	tableScan, err := dbrecord.NewTableScan(ctx, tx, tableName, tableLayout)
+	tableScan, err := dbrecord.NewTableScan(ctx, tx, tableName, tableLayout, false)
 	if err != nil {
 		return fmt.Errorf("create table scan for %q: %w", tableName, err)
 	}
@@ -123,7 +123,7 @@ func (i *IndexManager) CreateIndex(ctx context.Context, indexName string, tableN
 // tableNameのテーブルに対して、フィールド名をキーにしたインデックスのマップを返す
 func (i *IndexManager) GetIndexInfo(ctx context.Context, tableName string, tx *dbtx.Transaction) (indexInfos map[string]*IndexInfo, err error) {
 	indexInfos = make(map[string]*IndexInfo)
-	ts, err := dbrecord.NewTableScan(ctx, tx, IndexCatalogTableName, i.layout)
+	ts, err := dbrecord.NewTableScan(ctx, tx, IndexCatalogTableName, i.layout, true)
 	if err != nil {
 		return nil, fmt.Errorf("create table scan for %q: %w", IndexCatalogTableName, err)
 	}

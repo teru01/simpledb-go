@@ -65,7 +65,7 @@ func TestTableScanInsertAndGetInt(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	ts, err := dbrecord.NewTableScan(ctx, tx, tableName, layout)
+	ts, err := dbrecord.NewTableScan(ctx, tx, tableName, layout, false)
 	if err != nil {
 		t.Fatalf("failed to create table scan: %v", err)
 	}
@@ -102,7 +102,7 @@ func TestTableScanInsertAndGetString(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	ts, err := dbrecord.NewTableScan(ctx, tx, tableName, layout)
+	ts, err := dbrecord.NewTableScan(ctx, tx, tableName, layout, false)
 	if err != nil {
 		t.Fatalf("failed to create table scan: %v", err)
 	}
@@ -139,7 +139,7 @@ func TestTableScanInsertMultipleFields(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	ts, err := dbrecord.NewTableScan(ctx, tx, tableName, layout)
+	ts, err := dbrecord.NewTableScan(ctx, tx, tableName, layout, false)
 	if err != nil {
 		t.Fatalf("failed to create table scan: %v", err)
 	}
@@ -198,7 +198,7 @@ func TestTableScanDelete(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	ts, err := dbrecord.NewTableScan(ctx, tx, tableName, layout)
+	ts, err := dbrecord.NewTableScan(ctx, tx, tableName, layout, false)
 	if err != nil {
 		t.Fatalf("failed to create table scan: %v", err)
 	}
@@ -234,7 +234,7 @@ func TestTableScanDeleteIntField(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	ts, err := dbrecord.NewTableScan(ctx, tx, tableName, layout)
+	ts, err := dbrecord.NewTableScan(ctx, tx, tableName, layout, false)
 	if err != nil {
 		t.Fatalf("failed to create table scan: %v", err)
 	}
@@ -294,7 +294,7 @@ func TestTableScanDeleteStringField(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	ts, err := dbrecord.NewTableScan(ctx, tx, tableName, layout)
+	ts, err := dbrecord.NewTableScan(ctx, tx, tableName, layout, false)
 	if err != nil {
 		t.Fatalf("failed to create table scan: %v", err)
 	}
@@ -354,7 +354,7 @@ func TestTableScanMultipleRecords(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	ts, err := dbrecord.NewTableScan(ctx, tx, tableName, layout)
+	ts, err := dbrecord.NewTableScan(ctx, tx, tableName, layout, false)
 	if err != nil {
 		t.Fatalf("failed to create table scan: %v", err)
 	}
@@ -433,7 +433,7 @@ func TestTableScanMultipleBlocks(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	ts, err := dbrecord.NewTableScan(ctx, tx, tableName, layout)
+	ts, err := dbrecord.NewTableScan(ctx, tx, tableName, layout, false)
 	if err != nil {
 		t.Fatalf("failed to create table scan: %v", err)
 	}
@@ -488,7 +488,7 @@ func TestTableScanDeleteAcrossBlocks(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	ts, err := dbrecord.NewTableScan(ctx, tx, tableName, layout)
+	ts, err := dbrecord.NewTableScan(ctx, tx, tableName, layout, false)
 	if err != nil {
 		t.Fatalf("failed to create table scan: %v", err)
 	}
@@ -576,7 +576,7 @@ func TestTableScanInsertAfterDeleteAcrossBlocks(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	ts, err := dbrecord.NewTableScan(ctx, tx, tableName, layout)
+	ts, err := dbrecord.NewTableScan(ctx, tx, tableName, layout, false)
 	if err != nil {
 		t.Fatalf("failed to create table scan: %v", err)
 	}

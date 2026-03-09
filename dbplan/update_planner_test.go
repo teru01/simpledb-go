@@ -98,7 +98,7 @@ func TestUpdatePlannerExecuteInsert(t *testing.T) {
 		t.Fatalf("failed to get layout: %v", err)
 	}
 
-	ts, err := dbrecord.NewTableScan(ctx, tx, "users", layout)
+	ts, err := dbrecord.NewTableScan(ctx, tx, "users", layout, false)
 	if err != nil {
 		t.Fatalf("failed to create table scan: %v", err)
 	}
@@ -158,7 +158,7 @@ func TestUpdatePlannerExecuteDelete(t *testing.T) {
 		t.Fatalf("failed to get layout: %v", err)
 	}
 
-	ts, err := dbrecord.NewTableScan(ctx, tx, "users", layout)
+	ts, err := dbrecord.NewTableScan(ctx, tx, "users", layout, false)
 	if err != nil {
 		t.Fatalf("failed to create table scan: %v", err)
 	}
@@ -210,7 +210,7 @@ func TestUpdatePlannerExecuteDelete(t *testing.T) {
 	}
 
 	// Verify remaining data
-	ts2, err := dbrecord.NewTableScan(ctx, tx, "users", layout)
+	ts2, err := dbrecord.NewTableScan(ctx, tx, "users", layout, false)
 	if err != nil {
 		t.Fatalf("failed to create table scan: %v", err)
 	}
@@ -255,7 +255,7 @@ func TestUpdatePlannerExecuteModify(t *testing.T) {
 		t.Fatalf("failed to get layout: %v", err)
 	}
 
-	ts, err := dbrecord.NewTableScan(ctx, tx, "users", layout)
+	ts, err := dbrecord.NewTableScan(ctx, tx, "users", layout, false)
 	if err != nil {
 		t.Fatalf("failed to create table scan: %v", err)
 	}
@@ -306,7 +306,7 @@ func TestUpdatePlannerExecuteModify(t *testing.T) {
 	}
 
 	// Verify updated data
-	ts2, err := dbrecord.NewTableScan(ctx, tx, "users", layout)
+	ts2, err := dbrecord.NewTableScan(ctx, tx, "users", layout, false)
 	if err != nil {
 		t.Fatalf("failed to create table scan: %v", err)
 	}
@@ -526,7 +526,7 @@ func TestUpdatePlannerExecuteDeleteAll(t *testing.T) {
 		t.Fatalf("failed to get layout: %v", err)
 	}
 
-	ts, err := dbrecord.NewTableScan(ctx, tx, "users", layout)
+	ts, err := dbrecord.NewTableScan(ctx, tx, "users", layout, false)
 	if err != nil {
 		t.Fatalf("failed to create table scan: %v", err)
 	}
@@ -563,7 +563,7 @@ func TestUpdatePlannerExecuteDeleteAll(t *testing.T) {
 	}
 
 	// Verify all data is deleted
-	ts2, err := dbrecord.NewTableScan(ctx, tx, "users", layout)
+	ts2, err := dbrecord.NewTableScan(ctx, tx, "users", layout, false)
 	if err != nil {
 		t.Fatalf("failed to create table scan: %v", err)
 	}
@@ -598,7 +598,7 @@ func TestUpdatePlannerExecuteModifyAll(t *testing.T) {
 		t.Fatalf("failed to get layout: %v", err)
 	}
 
-	ts, err := dbrecord.NewTableScan(ctx, tx, "items", layout)
+	ts, err := dbrecord.NewTableScan(ctx, tx, "items", layout, false)
 	if err != nil {
 		t.Fatalf("failed to create table scan: %v", err)
 	}
@@ -635,7 +635,7 @@ func TestUpdatePlannerExecuteModifyAll(t *testing.T) {
 	}
 
 	// Verify all data is updated
-	ts2, err := dbrecord.NewTableScan(ctx, tx, "items", layout)
+	ts2, err := dbrecord.NewTableScan(ctx, tx, "items", layout, false)
 	if err != nil {
 		t.Fatalf("failed to create table scan: %v", err)
 	}

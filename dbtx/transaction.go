@@ -81,7 +81,11 @@ func (t *Transaction) Recover(ctx context.Context) error {
 }
 
 func (t *Transaction) Pin(ctx context.Context, blk dbfile.BlockID) error {
-	return t.myBufferList.Pin(ctx, blk)
+	return t.myBufferList.Pin(ctx, blk, false)
+}
+
+func (t *Transaction) PinPermanent(ctx context.Context, blk dbfile.BlockID) error {
+	return t.myBufferList.Pin(ctx, blk, true)
 }
 
 func (t *Transaction) UnPin(blk dbfile.BlockID) error {

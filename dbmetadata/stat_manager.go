@@ -70,7 +70,7 @@ func (s *StatManager) refreshStatisticsLocked(ctx context.Context, tx *dbtx.Tran
 	if err != nil {
 		return fmt.Errorf("get layout while refresh stats: %w", err)
 	}
-	ts, err := dbrecord.NewTableScan(ctx, tx, TableCatalogTableName, layout)
+	ts, err := dbrecord.NewTableScan(ctx, tx, TableCatalogTableName, layout, true)
 	if err != nil {
 		return fmt.Errorf("new table scan for table_catalog: %w", err)
 	}
@@ -106,7 +106,7 @@ func (s *StatManager) refreshStatisticsLocked(ctx context.Context, tx *dbtx.Tran
 }
 
 func (s *StatManager) calcTableStatsLocked(ctx context.Context, tableName string, layout *dbrecord.Layout, tx *dbtx.Transaction) (statInfo *StatInfo, err error) {
-	ts, err := dbrecord.NewTableScan(ctx, tx, tableName, layout)
+	ts, err := dbrecord.NewTableScan(ctx, tx, tableName, layout, false)
 	if err != nil {
 		return nil, fmt.Errorf("new table scan for %q: %w", tableName, err)
 	}

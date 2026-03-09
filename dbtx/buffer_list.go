@@ -30,8 +30,16 @@ func (b *BufferList) Buffer(blk dbfile.BlockID) (*dbbuffer.Buffer, error) {
 	return nil, fmt.Errorf("block %s not found in buffer list", blk)
 }
 
-func (b *BufferList) Pin(ctx context.Context, blk dbfile.BlockID) error {
-	buf, err := b.bufferManager.Pin(ctx, blk)
+func (b *BufferList) Pin(ctx context.Context, blk dbfile.BlockID, permanent bool) error {
+	var (
+		buf *dbbuffer.Buffer
+		err error
+	)
+	if permanent {
+		buf, err = b.bufferManager.PinPermanent(ctx, blk)
+	} else {
+		buf, err = b.bufferManager.Pin(ctx, blk)
+	}
 	if err != nil {
 		return fmt.Errorf("pin block %s: %w", blk, err)
 	}

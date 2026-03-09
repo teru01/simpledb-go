@@ -36,7 +36,7 @@ func (v *ViewManager) CreateView(ctx context.Context, viewName string, viewDef s
 	if err != nil {
 		return fmt.Errorf("get layout before creating view %q: %w", viewName, err)
 	}
-	ts, err := dbrecord.NewTableScan(ctx, tx, ViewCatalogTableName, layout)
+	ts, err := dbrecord.NewTableScan(ctx, tx, ViewCatalogTableName, layout, true)
 	if err != nil {
 		return fmt.Errorf("create table scan for view_catalog when creating view %q: %w", viewName, err)
 	}
@@ -61,7 +61,7 @@ func (v *ViewManager) GetViewDef(ctx context.Context, viewName string, tx *dbtx.
 	if err != nil {
 		return "", fmt.Errorf("get layout before get view %q: %w", viewName, err)
 	}
-	ts, err := dbrecord.NewTableScan(ctx, tx, ViewCatalogTableName, layout)
+	ts, err := dbrecord.NewTableScan(ctx, tx, ViewCatalogTableName, layout, true)
 	if err != nil {
 		return "", fmt.Errorf("create table scan for view_catalog when get view %q: %w", viewName, err)
 	}

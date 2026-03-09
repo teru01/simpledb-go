@@ -64,6 +64,9 @@ func (bm *BufferManager) FlushAll(txNum uint64) error {
 func (bm *BufferManager) Unpin(buffer *Buffer) {
 	bm.mu.Lock()
 	defer bm.mu.Unlock()
+	if buffer.IsPermanent() {
+		return
+	}
 	buffer.unpin()
 	if !buffer.IsPinned() {
 		bm.numAvailable++
@@ -73,6 +76,17 @@ func (bm *BufferManager) Unpin(buffer *Buffer) {
 			bm.availabilityNotification = nil
 		}
 	}
+}
+
+func (bm *BufferManager) PinPermanent(ctx context.Context, blk dbfile.BlockID) (*Buffer, error) {
+	buf, err := bm.Pin(ctx, blk)
+	if err != nil {
+		return nil, err
+	}
+	bm.mu.Lock()
+	defer bm.mu.Unlock()
+	buf.setPermanent()
+	return buf, nil
 }
 
 func (bm *BufferManager) Pin(ctx context.Context, blk dbfile.BlockID) (*Buffer, error) {

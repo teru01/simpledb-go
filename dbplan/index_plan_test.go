@@ -37,7 +37,7 @@ func TestIndexSelectPlanOpen(t *testing.T) {
 		t.Fatalf("failed to get layout: %v", err)
 	}
 
-	ts, err := dbrecord.NewTableScan(ctx, tx, "users", layout)
+	ts, err := dbrecord.NewTableScan(ctx, tx, "users", layout, false)
 	if err != nil {
 		t.Fatalf("failed to create table scan: %v", err)
 	}
@@ -145,7 +145,7 @@ func TestIndexSelectPlanNotFound(t *testing.T) {
 		t.Fatalf("failed to get layout: %v", err)
 	}
 
-	ts, err := dbrecord.NewTableScan(ctx, tx, "items", layout)
+	ts, err := dbrecord.NewTableScan(ctx, tx, "items", layout, false)
 	if err != nil {
 		t.Fatalf("failed to create table scan: %v", err)
 	}
@@ -265,7 +265,7 @@ func TestIndexJoinPlanOpen(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to get users layout: %v", err)
 	}
-	uTs, err := dbrecord.NewTableScan(ctx, tx, "jusers", usersLayout)
+	uTs, err := dbrecord.NewTableScan(ctx, tx, "jusers", usersLayout, false)
 	if err != nil {
 		t.Fatalf("failed to create users scan: %v", err)
 	}
@@ -296,7 +296,7 @@ func TestIndexJoinPlanOpen(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to get orders layout: %v", err)
 	}
-	oTs, err := dbrecord.NewTableScan(ctx, tx, "jorders", ordersLayout)
+	oTs, err := dbrecord.NewTableScan(ctx, tx, "jorders", ordersLayout, false)
 	if err != nil {
 		t.Fatalf("failed to create orders scan: %v", err)
 	}
@@ -431,7 +431,7 @@ func TestIndexJoinPlanNoMatch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to get layout: %v", err)
 	}
-	lTs, err := dbrecord.NewTableScan(ctx, tx, "left_t", leftLayout)
+	lTs, err := dbrecord.NewTableScan(ctx, tx, "left_t", leftLayout, false)
 	if err != nil {
 		t.Fatalf("failed to create scan: %v", err)
 	}
@@ -447,7 +447,7 @@ func TestIndexJoinPlanNoMatch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to get layout: %v", err)
 	}
-	rTs, err := dbrecord.NewTableScan(ctx, tx, "right_t", rightLayout)
+	rTs, err := dbrecord.NewTableScan(ctx, tx, "right_t", rightLayout, false)
 	if err != nil {
 		t.Fatalf("failed to create scan: %v", err)
 	}
@@ -542,7 +542,7 @@ func TestIndexUpdatePlannerInsert(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to get layout: %v", err)
 	}
-	ts, err := dbrecord.NewTableScan(ctx, tx, "products", layout)
+	ts, err := dbrecord.NewTableScan(ctx, tx, "products", layout, false)
 	if err != nil {
 		t.Fatalf("failed to create table scan: %v", err)
 	}
@@ -651,7 +651,7 @@ func TestIndexUpdatePlannerDelete(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to get layout: %v", err)
 	}
-	ts, err := dbrecord.NewTableScan(ctx, tx, "items", layout)
+	ts, err := dbrecord.NewTableScan(ctx, tx, "items", layout, false)
 	if err != nil {
 		t.Fatalf("failed to create scan: %v", err)
 	}
@@ -735,7 +735,7 @@ func TestIndexUpdatePlannerModify(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to get layout: %v", err)
 	}
-	ts, err := dbrecord.NewTableScan(ctx, tx, "things", layout)
+	ts, err := dbrecord.NewTableScan(ctx, tx, "things", layout, false)
 	if err != nil {
 		t.Fatalf("failed to create scan: %v", err)
 	}
@@ -788,7 +788,7 @@ func TestIndexSelectPlanDuplicateKeys(t *testing.T) {
 		t.Fatalf("failed to get layout: %v", err)
 	}
 
-	ts, err := dbrecord.NewTableScan(ctx, tx, "animals", layout)
+	ts, err := dbrecord.NewTableScan(ctx, tx, "animals", layout, false)
 	if err != nil {
 		t.Fatalf("failed to create table scan: %v", err)
 	}

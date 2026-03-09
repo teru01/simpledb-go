@@ -15,11 +15,12 @@ type Buffer struct {
 }
 
 type bufferState struct {
-	contents *dbfile.Page
-	blk      dbfile.BlockID
-	pins     int
-	txNum    uint64 // contentsをメモリ上で変更してdisk writeされてないtransaction number
-	lsn      int
+	contents  *dbfile.Page
+	blk       dbfile.BlockID
+	pins      int
+	txNum     uint64 // contentsをメモリ上で変更してdisk writeされてないtransaction number
+	lsn       int
+	permanent bool
 }
 
 func NewBuffer(id int, fm *dbfile.FileManager, lm *dblog.LogManager) Buffer {
@@ -92,6 +93,14 @@ func (b *Buffer) flush() error {
 
 func (b *Buffer) pin() {
 	b.state.pins++
+}
+
+func (b *Buffer) IsPermanent() bool {
+	return b.state.permanent
+}
+
+func (b *Buffer) setPermanent() {
+	b.state.permanent = true
 }
 
 func (b *Buffer) unpin() {

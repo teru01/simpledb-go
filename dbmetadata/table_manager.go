@@ -65,7 +65,7 @@ func (t *TableManager) tableFileExists(ctx context.Context, tx *dbtx.Transaction
 func (t *TableManager) CreateTable(ctx context.Context, tableName string, schema *dbrecord.Schema, tx *dbtx.Transaction) error {
 	layout := dbrecord.NewLayout(schema)
 
-	tableCatlog, err := dbrecord.NewTableScan(ctx, tx, TableCatalogTableName, t.tableCatalogLayout)
+	tableCatlog, err := dbrecord.NewTableScan(ctx, tx, TableCatalogTableName, t.tableCatalogLayout, true)
 	if err != nil {
 		return fmt.Errorf("create table scan for table_catalog when creating %q: %w", tableName, err)
 	}
@@ -81,7 +81,7 @@ func (t *TableManager) CreateTable(ctx context.Context, tableName string, schema
 	if err := tableCatlog.Close(ctx); err != nil {
 		return fmt.Errorf("close table scan for table_catalog when creating %q: %w", tableName, err)
 	}
-	fieldCatlog, err := dbrecord.NewTableScan(ctx, tx, FieldCatalogTableName, t.fieldCatalogLayout)
+	fieldCatlog, err := dbrecord.NewTableScan(ctx, tx, FieldCatalogTableName, t.fieldCatalogLayout, true)
 	if err != nil {
 		return fmt.Errorf("create table scan for field_catalog when creating %q: %w", tableName, err)
 	}
@@ -112,7 +112,7 @@ func (t *TableManager) CreateTable(ctx context.Context, tableName string, schema
 }
 
 func (t *TableManager) GetLayout(ctx context.Context, tableName string, tx *dbtx.Transaction) (*dbrecord.Layout, error) {
-	tableCatlog, err := dbrecord.NewTableScan(ctx, tx, TableCatalogTableName, t.tableCatalogLayout)
+	tableCatlog, err := dbrecord.NewTableScan(ctx, tx, TableCatalogTableName, t.tableCatalogLayout, true)
 	if err != nil {
 		return nil, fmt.Errorf("create table scan: %w", err)
 	}
@@ -147,7 +147,7 @@ func (t *TableManager) GetLayout(ctx context.Context, tableName string, tx *dbtx
 
 	schema := dbrecord.NewSchema()
 
-	fieldCatlog, err := dbrecord.NewTableScan(ctx, tx, FieldCatalogTableName, t.fieldCatalogLayout)
+	fieldCatlog, err := dbrecord.NewTableScan(ctx, tx, FieldCatalogTableName, t.fieldCatalogLayout, true)
 	if err != nil {
 		return nil, fmt.Errorf("create table scan: %w", err)
 	}

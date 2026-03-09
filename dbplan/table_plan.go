@@ -30,7 +30,7 @@ func NewTablePlan(ctx context.Context, tx *dbtx.Transaction, tableName string, m
 }
 
 func (t *TablePlan) Open(ctx context.Context) (dbquery.Scan, error) {
-	return dbrecord.NewTableScan(ctx, t.tx, t.tableName, t.layout)
+	return dbrecord.NewTableScan(ctx, t.tx, t.tableName, t.layout, false)
 }
 
 func (t *TablePlan) BlockAccessed() int {

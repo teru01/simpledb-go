@@ -22,8 +22,14 @@ type RecordPage struct {
 	layout *Layout
 }
 
-func NewRecordPage(ctx context.Context, tx *dbtx.Transaction, blk dbfile.BlockID, layout *Layout) (*RecordPage, error) {
-	if err := tx.Pin(ctx, blk); err != nil {
+func NewRecordPage(ctx context.Context, tx *dbtx.Transaction, blk dbfile.BlockID, layout *Layout, permanent bool) (*RecordPage, error) {
+	var err error
+	if permanent {
+		err = tx.PinPermanent(ctx, blk)
+	} else {
+		err = tx.Pin(ctx, blk)
+	}
+	if err != nil {
 		return nil, fmt.Errorf("pin block %s: %w", blk, err)
 	}
 	return &RecordPage{

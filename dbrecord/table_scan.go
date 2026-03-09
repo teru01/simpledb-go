@@ -14,6 +14,7 @@ type TableScan struct {
 	layout    *Layout
 	fileName  string
 	tableName string
+	permanent bool
 	state     *TableScanState
 }
 
@@ -26,7 +27,7 @@ func TableFileName(tableName string) string {
 	return fmt.Sprintf("%s.tbl", tableName)
 }
 
-func NewTableScan(ctx context.Context, tx *dbtx.Transaction, tableName string, layout *Layout) (*TableScan, error) {
+func NewTableScan(ctx context.Context, tx *dbtx.Transaction, tableName string, layout *Layout, permanent bool) (*TableScan, error) {
 	var (
 		state *TableScanState
 		err   error
@@ -37,6 +38,7 @@ func NewTableScan(ctx context.Context, tx *dbtx.Transaction, tableName string, l
 		layout:    layout,
 		tableName: tableName,
 		fileName:  fileName,
+		permanent: permanent,
 	}
 	size, err := tx.Size(ctx, fileName)
 	if err != nil {
@@ -58,6 +60,9 @@ func NewTableScan(ctx context.Context, tx *dbtx.Transaction, tableName string, l
 }
 
 func (t *TableScan) Close(ctx context.Context) error {
+	if t.permanent {
+		return nil
+	}
 	if t.state != nil && t.state.recordPage != nil {
 		if err := t.tx.UnPin(t.state.recordPage.Block()); err != nil {
 			return fmt.Errorf("unpin block %s: %w", t.state.recordPage.Block(), err)
@@ -126,7 +131,7 @@ func (t *TableScan) MoveToRID(ctx context.Context, rID RID) error {
 		return fmt.Errorf("close current block before moving to RID %v: %w", rID, err)
 	}
 	blk := dbfile.NewBlockID(t.fileName, rID.BlockNum())
-	rp, err := NewRecordPage(ctx, t.tx, blk, t.layout)
+	rp, err := NewRecordPage(ctx, t.tx, blk, t.layout, t.permanent)
 	if err != nil {
 		return fmt.Errorf("create record page for block %s: %w", blk, err)
 	}
@@ -247,7 +252,7 @@ func (t *TableScan) stateForBlock(ctx context.Context, blkNum int) (*TableScanSt
 		return nil, fmt.Errorf("close current block before moving to block %d: %w", blkNum, err)
 	}
 	blk := dbfile.NewBlockID(t.fileName, blkNum)
-	rp, err := NewRecordPage(ctx, t.tx, blk, t.layout)
+	rp, err := NewRecordPage(ctx, t.tx, blk, t.layout, t.permanent)
 	if err != nil {
 		return nil, fmt.Errorf("create record page for block %s: %w", blk, err)
 	}
@@ -266,7 +271,7 @@ func (t *TableScan) stateForNewBlock(ctx context.Context) (*TableScanState, erro
 	if err != nil {
 		return nil, fmt.Errorf("append new block to table %q: %w", t.fileName, err)
 	}
-	rp, err := NewRecordPage(ctx, t.tx, blk, t.layout)
+	rp, err := NewRecordPage(ctx, t.tx, blk, t.layout, t.permanent)
 	if err != nil {
 		return nil, fmt.Errorf("create record page for block %s: %w", blk, err)
 	}

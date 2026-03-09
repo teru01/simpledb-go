@@ -69,7 +69,7 @@ func TestProductScanCartesianProduct(t *testing.T) {
 	ctx := context.Background()
 
 	// Create and populate users table
-	ts1, err := dbrecord.NewTableScan(ctx, tx, tableName1, layout1)
+	ts1, err := dbrecord.NewTableScan(ctx, tx, tableName1, layout1, false)
 	if err != nil {
 		t.Fatalf("failed to create table scan 1: %v", err)
 	}
@@ -95,7 +95,7 @@ func TestProductScanCartesianProduct(t *testing.T) {
 	}
 
 	// Create and populate orders table
-	ts2, err := dbrecord.NewTableScan(ctx, tx, tableName2, layout2)
+	ts2, err := dbrecord.NewTableScan(ctx, tx, tableName2, layout2, false)
 	if err != nil {
 		t.Fatalf("failed to create table scan 2: %v", err)
 	}
@@ -177,12 +177,12 @@ func TestProductScanHasField(t *testing.T) {
 
 	ctx := context.Background()
 
-	ts1, err := dbrecord.NewTableScan(ctx, tx, tableName1, layout1)
+	ts1, err := dbrecord.NewTableScan(ctx, tx, tableName1, layout1, false)
 	if err != nil {
 		t.Fatalf("failed to create table scan 1: %v", err)
 	}
 
-	ts2, err := dbrecord.NewTableScan(ctx, tx, tableName2, layout2)
+	ts2, err := dbrecord.NewTableScan(ctx, tx, tableName2, layout2, false)
 	if err != nil {
 		t.Fatalf("failed to create table scan 2: %v", err)
 	}
@@ -214,7 +214,7 @@ func TestProductScanGetValue(t *testing.T) {
 
 	ctx := context.Background()
 
-	ts1, err := dbrecord.NewTableScan(ctx, tx, tableName1, layout1)
+	ts1, err := dbrecord.NewTableScan(ctx, tx, tableName1, layout1, false)
 	if err != nil {
 		t.Fatalf("failed to create table scan 1: %v", err)
 	}
@@ -233,7 +233,7 @@ func TestProductScanGetValue(t *testing.T) {
 		t.Fatalf("failed to reset ts1: %v", err)
 	}
 
-	ts2, err := dbrecord.NewTableScan(ctx, tx, tableName2, layout2)
+	ts2, err := dbrecord.NewTableScan(ctx, tx, tableName2, layout2, false)
 	if err != nil {
 		t.Fatalf("failed to create table scan 2: %v", err)
 	}
@@ -290,7 +290,7 @@ func TestProductScanEmptyTable(t *testing.T) {
 	ctx := context.Background()
 
 	// ts1 has data, ts2 is empty
-	ts1, err := dbrecord.NewTableScan(ctx, tx, tableName1, layout1)
+	ts1, err := dbrecord.NewTableScan(ctx, tx, tableName1, layout1, false)
 	if err != nil {
 		t.Fatalf("failed to create table scan 1: %v", err)
 	}
@@ -306,7 +306,7 @@ func TestProductScanEmptyTable(t *testing.T) {
 		t.Fatalf("failed to reset ts1: %v", err)
 	}
 
-	ts2, err := dbrecord.NewTableScan(ctx, tx, tableName2, layout2)
+	ts2, err := dbrecord.NewTableScan(ctx, tx, tableName2, layout2, false)
 	if err != nil {
 		t.Fatalf("failed to create table scan 2: %v", err)
 	}
@@ -336,13 +336,13 @@ func TestProductScanEmptyScan1(t *testing.T) {
 	ctx := context.Background()
 
 	// ts1 is empty - no inserts
-	ts1, err := dbrecord.NewTableScan(ctx, tx, tableName1, layout1)
+	ts1, err := dbrecord.NewTableScan(ctx, tx, tableName1, layout1, false)
 	if err != nil {
 		t.Fatalf("failed to create table scan 1: %v", err)
 	}
 
 	// ts2 has data
-	ts2, err := dbrecord.NewTableScan(ctx, tx, tableName2, layout2)
+	ts2, err := dbrecord.NewTableScan(ctx, tx, tableName2, layout2, false)
 	if err != nil {
 		t.Fatalf("failed to create table scan 2: %v", err)
 	}

@@ -80,7 +80,7 @@ func TestQueryPlannerCreatePlanSingleTable(t *testing.T) {
 		t.Fatalf("failed to get layout: %v", err)
 	}
 
-	ts, err := dbrecord.NewTableScan(ctx, tx, "users", layout)
+	ts, err := dbrecord.NewTableScan(ctx, tx, "users", layout, false)
 	if err != nil {
 		t.Fatalf("failed to create table scan: %v", err)
 	}
@@ -185,7 +185,7 @@ func TestQueryPlannerCreatePlanWithWhere(t *testing.T) {
 		t.Fatalf("failed to get layout: %v", err)
 	}
 
-	ts, err := dbrecord.NewTableScan(ctx, tx, "users", layout)
+	ts, err := dbrecord.NewTableScan(ctx, tx, "users", layout, false)
 	if err != nil {
 		t.Fatalf("failed to create table scan: %v", err)
 	}
@@ -289,7 +289,7 @@ func TestQueryPlannerCreatePlanMultipleTables(t *testing.T) {
 		t.Fatalf("failed to get users layout: %v", err)
 	}
 
-	usersScan, err := dbrecord.NewTableScan(ctx, tx, "users", usersLayout)
+	usersScan, err := dbrecord.NewTableScan(ctx, tx, "users", usersLayout, false)
 	if err != nil {
 		t.Fatalf("failed to create users scan: %v", err)
 	}
@@ -321,7 +321,7 @@ func TestQueryPlannerCreatePlanMultipleTables(t *testing.T) {
 		t.Fatalf("failed to get orders layout: %v", err)
 	}
 
-	ordersScan, err := dbrecord.NewTableScan(ctx, tx, "orders", ordersLayout)
+	ordersScan, err := dbrecord.NewTableScan(ctx, tx, "orders", ordersLayout, false)
 	if err != nil {
 		t.Fatalf("failed to create orders scan: %v", err)
 	}
@@ -425,7 +425,7 @@ func TestQueryPlannerCreatePlanWithView(t *testing.T) {
 		t.Fatalf("failed to get layout: %v", err)
 	}
 
-	ts, err := dbrecord.NewTableScan(ctx, tx, "users", layout)
+	ts, err := dbrecord.NewTableScan(ctx, tx, "users", layout, false)
 	if err != nil {
 		t.Fatalf("failed to create table scan: %v", err)
 	}

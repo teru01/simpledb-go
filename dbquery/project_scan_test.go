@@ -62,7 +62,7 @@ func TestProjectScanProjectFields(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	ts, err := dbrecord.NewTableScan(ctx, tx, tableName, layout)
+	ts, err := dbrecord.NewTableScan(ctx, tx, tableName, layout, false)
 	if err != nil {
 		t.Fatalf("failed to create table scan: %v", err)
 	}
@@ -142,7 +142,7 @@ func TestProjectScanHasField(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	ts, err := dbrecord.NewTableScan(ctx, tx, tableName, layout)
+	ts, err := dbrecord.NewTableScan(ctx, tx, tableName, layout, false)
 	if err != nil {
 		t.Fatalf("failed to create table scan: %v", err)
 	}
@@ -173,7 +173,7 @@ func TestProjectScanGetValue(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	ts, err := dbrecord.NewTableScan(ctx, tx, tableName, layout)
+	ts, err := dbrecord.NewTableScan(ctx, tx, tableName, layout, false)
 	if err != nil {
 		t.Fatalf("failed to create table scan: %v", err)
 	}
@@ -219,7 +219,7 @@ func TestProjectScanEmpty(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	ts, err := dbrecord.NewTableScan(ctx, tx, tableName, layout)
+	ts, err := dbrecord.NewTableScan(ctx, tx, tableName, layout, false)
 	if err != nil {
 		t.Fatalf("failed to create table scan: %v", err)
 	}

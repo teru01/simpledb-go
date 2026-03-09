@@ -67,7 +67,7 @@ func TestRecordPageFormat(t *testing.T) {
 
 	ctx := context.Background()
 
-	rp, err := dbrecord.NewRecordPage(ctx, tx, blk, layout)
+	rp, err := dbrecord.NewRecordPage(ctx, tx, blk, layout, false)
 	if err != nil {
 		t.Fatalf("failed to create record page: %v", err)
 	}
@@ -93,7 +93,7 @@ func TestRecordPageInsertAfter(t *testing.T) {
 
 	ctx := context.Background()
 
-	rp, err := dbrecord.NewRecordPage(ctx, tx, blk, layout)
+	rp, err := dbrecord.NewRecordPage(ctx, tx, blk, layout, false)
 	if err != nil {
 		t.Fatalf("failed to create record page: %v", err)
 	}
@@ -126,7 +126,7 @@ func TestRecordPageSetGetInt(t *testing.T) {
 
 	ctx := context.Background()
 
-	rp, err := dbrecord.NewRecordPage(ctx, tx, blk, layout)
+	rp, err := dbrecord.NewRecordPage(ctx, tx, blk, layout, false)
 	if err != nil {
 		t.Fatalf("failed to create record page: %v", err)
 	}
@@ -160,7 +160,7 @@ func TestRecordPageSetGetString(t *testing.T) {
 
 	ctx := context.Background()
 
-	rp, err := dbrecord.NewRecordPage(ctx, tx, blk, layout)
+	rp, err := dbrecord.NewRecordPage(ctx, tx, blk, layout, false)
 	if err != nil {
 		t.Fatalf("failed to create record page: %v", err)
 	}
@@ -194,7 +194,7 @@ func TestRecordPageDelete(t *testing.T) {
 
 	ctx := context.Background()
 
-	rp, err := dbrecord.NewRecordPage(ctx, tx, blk, layout)
+	rp, err := dbrecord.NewRecordPage(ctx, tx, blk, layout, false)
 	if err != nil {
 		t.Fatalf("failed to create record page: %v", err)
 	}
@@ -233,7 +233,7 @@ func TestRecordPageNextAfter(t *testing.T) {
 
 	ctx := context.Background()
 
-	rp, err := dbrecord.NewRecordPage(ctx, tx, blk, layout)
+	rp, err := dbrecord.NewRecordPage(ctx, tx, blk, layout, false)
 	if err != nil {
 		t.Fatalf("failed to create record page: %v", err)
 	}
@@ -285,7 +285,7 @@ func TestRecordPageMultipleFields(t *testing.T) {
 
 	ctx := context.Background()
 
-	rp, err := dbrecord.NewRecordPage(ctx, tx, blk, layout)
+	rp, err := dbrecord.NewRecordPage(ctx, tx, blk, layout, false)
 	if err != nil {
 		t.Fatalf("failed to create record page: %v", err)
 	}
@@ -340,7 +340,7 @@ func TestRecordPageBlock(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	rp, err := dbrecord.NewRecordPage(ctx, tx, blk, layout)
+	rp, err := dbrecord.NewRecordPage(ctx, tx, blk, layout, false)
 	if err != nil {
 		t.Fatalf("failed to create record page: %v", err)
 	}

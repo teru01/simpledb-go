@@ -307,6 +307,105 @@ func TestBufferManagerConcurrentPinUnpin(t *testing.T) {
 	}
 }
 
+func TestBufferManagerPinPermanent(t *testing.T) {
+	bm, fm, cleanup := setupTestBufferManager(t, 3)
+	defer cleanup()
+
+	for i := 0; i < 3; i++ {
+		if _, err := fm.Append("testfile"); err != nil {
+			t.Fatalf("failed to append block %d: %v", i, err)
+		}
+	}
+
+	blk1 := dbfile.NewBlockID("testfile", 0)
+	blk2 := dbfile.NewBlockID("testfile", 1)
+	blk3 := dbfile.NewBlockID("testfile", 2)
+	ctx := context.Background()
+
+	buf1, err := bm.PinPermanent(ctx, blk1)
+	if err != nil {
+		t.Fatalf("failed to pin permanent blk1: %v", err)
+	}
+
+	if !buf1.IsPermanent() {
+		t.Error("expected buffer to be permanent")
+	}
+
+	if available := bm.Available(); available != 2 {
+		t.Errorf("expected 2 available buffers after permanent pin, got %d", available)
+	}
+
+	bm.Unpin(buf1)
+	if available := bm.Available(); available != 2 {
+		t.Errorf("expected 2 available buffers after unpin of permanent buffer, got %d", available)
+	}
+
+	if !buf1.IsPinned() {
+		t.Error("expected permanent buffer to remain pinned after Unpin")
+	}
+
+	buf2, err := bm.Pin(ctx, blk2)
+	if err != nil {
+		t.Fatalf("failed to pin blk2: %v", err)
+	}
+	bm.Unpin(buf2)
+
+	buf3, err := bm.Pin(ctx, blk3)
+	if err != nil {
+		t.Fatalf("failed to pin blk3: %v", err)
+	}
+	bm.Unpin(buf3)
+
+	if buf2 == buf1 || buf3 == buf1 {
+		t.Error("permanent buffer should not be replaced by other pins")
+	}
+}
+
+func TestBufferManagerPinPermanentEviction(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		bm, fm, cleanup := setupTestBufferManager(t, 2)
+		defer cleanup()
+
+		for i := 0; i < 3; i++ {
+			if _, err := fm.Append("testfile"); err != nil {
+				t.Fatalf("failed to append block %d: %v", i, err)
+			}
+		}
+
+		blk1 := dbfile.NewBlockID("testfile", 0)
+		blk2 := dbfile.NewBlockID("testfile", 1)
+		blk3 := dbfile.NewBlockID("testfile", 2)
+		ctx := context.Background()
+
+		_, err := bm.PinPermanent(ctx, blk1)
+		if err != nil {
+			t.Fatalf("failed to pin permanent blk1: %v", err)
+		}
+
+		buf2, err := bm.Pin(ctx, blk2)
+		if err != nil {
+			t.Fatalf("failed to pin blk2: %v", err)
+		}
+
+		bm.Unpin(buf2)
+
+		buf3, err := bm.Pin(ctx, blk3)
+		if err != nil {
+			t.Fatalf("failed to pin blk3: %v", err)
+		}
+
+		if buf3.BlockID() != blk3 {
+			t.Errorf("expected buf3 to hold blk3, got %v", buf3.BlockID())
+		}
+
+		bm.Unpin(buf3)
+
+		if available := bm.Available(); available != 1 {
+			t.Errorf("expected 1 available buffer (permanent buffer excluded), got %d", available)
+		}
+	})
+}
+
 func TestBufferManagerPinTimeout(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		bm, fm, cleanup := setupTestBufferManager(t, 1)

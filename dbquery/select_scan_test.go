@@ -63,7 +63,7 @@ func TestSelectScanFilterByInt(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	ts, err := dbrecord.NewTableScan(ctx, tx, tableName, layout)
+	ts, err := dbrecord.NewTableScan(ctx, tx, tableName, layout, false)
 	if err != nil {
 		t.Fatalf("failed to create table scan: %v", err)
 	}
@@ -151,7 +151,7 @@ func TestSelectScanFilterByString(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	ts, err := dbrecord.NewTableScan(ctx, tx, tableName, layout)
+	ts, err := dbrecord.NewTableScan(ctx, tx, tableName, layout, false)
 	if err != nil {
 		t.Fatalf("failed to create table scan: %v", err)
 	}
@@ -238,7 +238,7 @@ func TestSelectScanMultipleTerms(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	ts, err := dbrecord.NewTableScan(ctx, tx, tableName, layout)
+	ts, err := dbrecord.NewTableScan(ctx, tx, tableName, layout, false)
 	if err != nil {
 		t.Fatalf("failed to create table scan: %v", err)
 	}
@@ -336,7 +336,7 @@ func TestSelectScanNoMatches(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	ts, err := dbrecord.NewTableScan(ctx, tx, tableName, layout)
+	ts, err := dbrecord.NewTableScan(ctx, tx, tableName, layout, false)
 	if err != nil {
 		t.Fatalf("failed to create table scan: %v", err)
 	}
@@ -379,7 +379,7 @@ func TestSelectScanHasField(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	ts, err := dbrecord.NewTableScan(ctx, tx, tableName, layout)
+	ts, err := dbrecord.NewTableScan(ctx, tx, tableName, layout, false)
 	if err != nil {
 		t.Fatalf("failed to create table scan: %v", err)
 	}
@@ -411,7 +411,7 @@ func TestSelectScanUpdate(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	ts, err := dbrecord.NewTableScan(ctx, tx, tableName, layout)
+	ts, err := dbrecord.NewTableScan(ctx, tx, tableName, layout, false)
 	if err != nil {
 		t.Fatalf("failed to create table scan: %v", err)
 	}
@@ -470,7 +470,7 @@ func TestSelectScanUpdate(t *testing.T) {
 	selectScan.Close(ctx)
 
 	// Create a new TableScan for verification
-	ts2, err := dbrecord.NewTableScan(ctx, tx, tableName, layout)
+	ts2, err := dbrecord.NewTableScan(ctx, tx, tableName, layout, false)
 	if err != nil {
 		t.Fatalf("failed to create table scan for verification: %v", err)
 	}
@@ -514,7 +514,7 @@ func TestSelectScanDelete(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	ts, err := dbrecord.NewTableScan(ctx, tx, tableName, layout)
+	ts, err := dbrecord.NewTableScan(ctx, tx, tableName, layout, false)
 	if err != nil {
 		t.Fatalf("failed to create table scan: %v", err)
 	}
@@ -574,7 +574,7 @@ func TestSelectScanDelete(t *testing.T) {
 	selectScan.Close(ctx)
 
 	// Create a new TableScan for verification
-	ts2, err := dbrecord.NewTableScan(ctx, tx, tableName, layout)
+	ts2, err := dbrecord.NewTableScan(ctx, tx, tableName, layout, false)
 	if err != nil {
 		t.Fatalf("failed to create table scan for verification: %v", err)
 	}
@@ -637,7 +637,7 @@ func TestSelectScanLessThan(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	ts, err := dbrecord.NewTableScan(ctx, tx, tableName, layout)
+	ts, err := dbrecord.NewTableScan(ctx, tx, tableName, layout, false)
 	if err != nil {
 		t.Fatalf("failed to create table scan: %v", err)
 	}
@@ -700,7 +700,7 @@ func TestSelectScanGreaterThan(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	ts, err := dbrecord.NewTableScan(ctx, tx, tableName, layout)
+	ts, err := dbrecord.NewTableScan(ctx, tx, tableName, layout, false)
 	if err != nil {
 		t.Fatalf("failed to create table scan: %v", err)
 	}
@@ -763,7 +763,7 @@ func TestSelectScanGreaterThanWithString(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	ts, err := dbrecord.NewTableScan(ctx, tx, tableName, layout)
+	ts, err := dbrecord.NewTableScan(ctx, tx, tableName, layout, false)
 	if err != nil {
 		t.Fatalf("failed to create table scan: %v", err)
 	}
@@ -825,7 +825,7 @@ func TestSelectScanLessThanAndEquator(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	ts, err := dbrecord.NewTableScan(ctx, tx, tableName, layout)
+	ts, err := dbrecord.NewTableScan(ctx, tx, tableName, layout, false)
 	if err != nil {
 		t.Fatalf("failed to create table scan: %v", err)
 	}
