@@ -124,11 +124,11 @@ func (rm *RecoveryManager) doRecover(ctx context.Context) error {
 func (rm *RecoveryManager) SetInt(buf *dbbuffer.Buffer, offset, val int) (int, error) {
 	oldVal := buf.Contents().GetInt(offset)
 	blk := buf.BlockID()
-	return WriteIntToLog(rm.logManager, rm.txNum, blk, offset, oldVal)
+	return WriteIntToLog(rm.logManager, rm.txNum, blk, offset, oldVal, val)
 }
 
 func (rm *RecoveryManager) SetString(buf *dbbuffer.Buffer, offset int, val string) (int, error) {
 	oldVal := buf.Contents().GetString(offset)
 	blk := buf.BlockID()
-	return WriteStringToLog(rm.logManager, rm.txNum, blk, offset, oldVal)
+	return WriteStringToLog(rm.logManager, rm.txNum, blk, offset, oldVal, val)
 }

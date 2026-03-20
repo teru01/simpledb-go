@@ -22,6 +22,7 @@ type LogRecord interface {
 	op() int
 	txNumber() uint64
 	undo(ctx context.Context, tx *Transaction) error
+	redo(ctx context.Context, tx *Transaction) error
 }
 
 func NewLogRecord(contents []byte) LogRecord {
@@ -58,6 +59,10 @@ func (l *checkpointLogRecord) txNumber() uint64 {
 }
 
 func (l *checkpointLogRecord) undo(ctx context.Context, tx *Transaction) error {
+	return nil
+}
+
+func (l *checkpointLogRecord) redo(ctx context.Context, tx *Transaction) error {
 	return nil
 }
 
@@ -104,6 +109,10 @@ func (l *startLogRecord) undo(ctx context.Context, tx *Transaction) error {
 	return nil
 }
 
+func (l *startLogRecord) redo(ctx context.Context, tx *Transaction) error {
+	return nil
+}
+
 func WriteStartToLog(lm *dblog.LogManager, txNum uint64) (int, error) {
 	b := make([]byte, dbsize.IntSize+dbsize.Uint64Size)
 	txPos := dbsize.IntSize
@@ -140,6 +149,10 @@ func (l *commitLogRecord) txNumber() uint64 {
 }
 
 func (l *commitLogRecord) undo(ctx context.Context, tx *Transaction) error {
+	return nil
+}
+
+func (l *commitLogRecord) redo(ctx context.Context, tx *Transaction) error {
 	return nil
 }
 
@@ -190,6 +203,10 @@ func (l *rollbackLogRecord) undo(ctx context.Context, tx *Transaction) error {
 	return nil
 }
 
+func (l *rollbackLogRecord) redo(ctx context.Context, tx *Transaction) error {
+	return nil
+}
+
 func WriteRollbackToLog(lm *dblog.LogManager, txNum uint64) (int, error) {
 	b := make([]byte, dbsize.IntSize+dbsize.Uint64Size)
 	txPos := dbsize.IntSize
@@ -208,10 +225,11 @@ func WriteRollbackToLog(lm *dblog.LogManager, txNum uint64) (int, error) {
 }
 
 type setIntLogRecord struct {
-	txNum   uint64
-	blockID dbfile.BlockID
-	offset  int
-	value   int
+	txNum    uint64
+	blockID  dbfile.BlockID
+	offset   int
+	value    int
+	newValue int
 }
 
 func NewSetIntLogRecord(page *dbfile.Page) LogRecord {
@@ -226,7 +244,9 @@ func NewSetIntLogRecord(page *dbfile.Page) LogRecord {
 	offset := page.GetInt(offsetPos)
 	valuePos := offsetPos + dbsize.IntSize
 	value := page.GetInt(valuePos)
-	return &setIntLogRecord{txNum: txNum, blockID: blockID, offset: offset, value: value}
+	newValuePos := valuePos + dbsize.IntSize
+	newValue := page.GetInt(newValuePos)
+	return &setIntLogRecord{txNum: txNum, blockID: blockID, offset: offset, value: value, newValue: newValue}
 }
 
 func (l *setIntLogRecord) op() int {
@@ -250,18 +270,32 @@ func (l *setIntLogRecord) undo(ctx context.Context, tx *Transaction) error {
 	return nil
 }
 
-func (l *setIntLogRecord) String() string {
-	return fmt.Sprintf("{\"kind\": \"setInt\", \"txNum\": %d, \"blockID\": %s, \"offset\": %d, \"value\": %d}", l.txNumber(), l.blockID.String(), l.offset, l.value)
+func (l *setIntLogRecord) redo(ctx context.Context, tx *Transaction) error {
+	if err := tx.Pin(ctx, l.blockID); err != nil {
+		return fmt.Errorf("pin block %s for redo: %w", l.blockID, err)
+	}
+	if err := tx.SetInt(ctx, l.blockID, l.offset, l.newValue, false); err != nil {
+		return fmt.Errorf("set int value %d at offset %d in block %s for redo: %w", l.newValue, l.offset, l.blockID, err)
+	}
+	if err := tx.UnPin(l.blockID); err != nil {
+		return fmt.Errorf("unpin block %s after redo: %w", l.blockID, err)
+	}
+	return nil
 }
 
-// SETINT,TXNUM,FILENAME,BLOCKNUM,OFFSET,VALUE
-func WriteIntToLog(lm *dblog.LogManager, txNum uint64, blockID dbfile.BlockID, offset int, value int) (int, error) {
+func (l *setIntLogRecord) String() string {
+	return fmt.Sprintf("{\"kind\": \"setInt\", \"txNum\": %d, \"blockID\": %s, \"offset\": %d, \"value\": %d, \"newValue\": %d}", l.txNumber(), l.blockID.String(), l.offset, l.value, l.newValue)
+}
+
+// SETINT,TXNUM,FILENAME,BLOCKNUM,OFFSET,OLDVALUE,NEWVALUE
+func WriteIntToLog(lm *dblog.LogManager, txNum uint64, blockID dbfile.BlockID, offset int, oldValue int, newValue int) (int, error) {
 	txPos := dbsize.IntSize
 	fileNamePos := txPos + dbsize.Uint64Size
 	blockPos := fileNamePos + dbfile.MaxStringLengthOnPage(len(blockID.FileName()))
 	offsetPos := blockPos + dbsize.IntSize
-	valuePos := offsetPos + dbsize.IntSize
-	recordLen := valuePos + dbsize.IntSize
+	oldValuePos := offsetPos + dbsize.IntSize
+	newValuePos := oldValuePos + dbsize.IntSize
+	recordLen := newValuePos + dbsize.IntSize
 	b := make([]byte, recordLen)
 	page := dbfile.NewPageFromBytes(b)
 	if err := page.SetInt(0, SETINT); err != nil {
@@ -279,8 +313,11 @@ func WriteIntToLog(lm *dblog.LogManager, txNum uint64, blockID dbfile.BlockID, o
 	if err := page.SetInt(offsetPos, offset); err != nil {
 		return 0, fmt.Errorf("set offset %d at offset %d: %w", offset, offsetPos, err)
 	}
-	if err := page.SetInt(valuePos, value); err != nil {
-		return 0, fmt.Errorf("set int value %d at offset %d: %w", value, valuePos, err)
+	if err := page.SetInt(oldValuePos, oldValue); err != nil {
+		return 0, fmt.Errorf("set int old value %d at offset %d: %w", oldValue, oldValuePos, err)
+	}
+	if err := page.SetInt(newValuePos, newValue); err != nil {
+		return 0, fmt.Errorf("set int new value %d at offset %d: %w", newValue, newValuePos, err)
 	}
 	lsn, err := lm.Append(b)
 	if err != nil {
@@ -290,10 +327,11 @@ func WriteIntToLog(lm *dblog.LogManager, txNum uint64, blockID dbfile.BlockID, o
 }
 
 type setStringLogRecord struct {
-	txNum   uint64
-	blockID dbfile.BlockID
-	offset  int
-	value   string
+	txNum    uint64
+	blockID  dbfile.BlockID
+	offset   int
+	value    string
+	newValue string
 }
 
 func NewSetStringLogRecord(page *dbfile.Page) LogRecord {
@@ -308,7 +346,9 @@ func NewSetStringLogRecord(page *dbfile.Page) LogRecord {
 	offset := page.GetInt(offsetPos)
 	valuePos := offsetPos + dbsize.IntSize
 	value := page.GetString(valuePos)
-	return &setStringLogRecord{txNum: txNum, blockID: blockID, offset: offset, value: value}
+	newValuePos := valuePos + dbfile.MaxStringLengthOnPage(len(value))
+	newValue := page.GetString(newValuePos)
+	return &setStringLogRecord{txNum: txNum, blockID: blockID, offset: offset, value: value, newValue: newValue}
 }
 
 func (l *setStringLogRecord) op() int {
@@ -332,18 +372,32 @@ func (l *setStringLogRecord) undo(ctx context.Context, tx *Transaction) error {
 	return nil
 }
 
-func (l *setStringLogRecord) String() string {
-	return fmt.Sprintf("{\"kind\": \"setString\", \"txNum\": %d, \"blockID\": %s, \"offset\": %d, \"value\": %s}", l.txNumber(), l.blockID.String(), l.offset, l.value)
+func (l *setStringLogRecord) redo(ctx context.Context, tx *Transaction) error {
+	if err := tx.Pin(ctx, l.blockID); err != nil {
+		return fmt.Errorf("pin block %s for redo: %w", l.blockID, err)
+	}
+	if err := tx.SetString(ctx, l.blockID, l.offset, l.newValue, false); err != nil {
+		return fmt.Errorf("set string value %q at offset %d in block %s for redo: %w", l.newValue, l.offset, l.blockID, err)
+	}
+	if err := tx.UnPin(l.blockID); err != nil {
+		return fmt.Errorf("unpin block %s after redo: %w", l.blockID, err)
+	}
+	return nil
 }
 
-// SETSTRING,TXNUM,FILENAME,BLOCKNUM,OFFSET,VALUE
-func WriteStringToLog(lm *dblog.LogManager, txNum uint64, blockID dbfile.BlockID, offset int, value string) (int, error) {
+func (l *setStringLogRecord) String() string {
+	return fmt.Sprintf("{\"kind\": \"setString\", \"txNum\": %d, \"blockID\": %s, \"offset\": %d, \"value\": %s, \"newValue\": %s}", l.txNumber(), l.blockID.String(), l.offset, l.value, l.newValue)
+}
+
+// SETSTRING,TXNUM,FILENAME,BLOCKNUM,OFFSET,OLDVALUE,NEWVALUE
+func WriteStringToLog(lm *dblog.LogManager, txNum uint64, blockID dbfile.BlockID, offset int, oldValue string, newValue string) (int, error) {
 	txPos := dbsize.IntSize
 	fileNamePos := txPos + dbsize.Uint64Size
 	blockPos := fileNamePos + dbfile.MaxStringLengthOnPage(len(blockID.FileName()))
 	offsetPos := blockPos + dbsize.IntSize
-	valuePos := offsetPos + dbsize.IntSize
-	recordLen := valuePos + dbfile.MaxStringLengthOnPage(len(value))
+	oldValuePos := offsetPos + dbsize.IntSize
+	newValuePos := oldValuePos + dbfile.MaxStringLengthOnPage(len(oldValue))
+	recordLen := newValuePos + dbfile.MaxStringLengthOnPage(len(newValue))
 	b := make([]byte, recordLen)
 	page := dbfile.NewPageFromBytes(b)
 	if err := page.SetInt(0, SETSTRING); err != nil {
@@ -361,8 +415,11 @@ func WriteStringToLog(lm *dblog.LogManager, txNum uint64, blockID dbfile.BlockID
 	if err := page.SetInt(offsetPos, offset); err != nil {
 		return 0, fmt.Errorf("set offset %d at offset %d: %w", offset, offsetPos, err)
 	}
-	if err := page.SetString(valuePos, value); err != nil {
-		return 0, fmt.Errorf("set string value %q at offset %d: %w", value, valuePos, err)
+	if err := page.SetString(oldValuePos, oldValue); err != nil {
+		return 0, fmt.Errorf("set string old value %q at offset %d: %w", oldValue, oldValuePos, err)
+	}
+	if err := page.SetString(newValuePos, newValue); err != nil {
+		return 0, fmt.Errorf("set string new value %q at offset %d: %w", newValue, newValuePos, err)
 	}
 	lsn, err := lm.Append(b)
 	if err != nil {
