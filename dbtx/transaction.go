@@ -2,6 +2,7 @@ package dbtx
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"sync/atomic"
@@ -13,6 +14,15 @@ import (
 )
 
 const EndOfFile = -1
+
+var ErrNotLeader = errors.New("writes are only allowed on the leader node")
+
+func (t *Transaction) checkWritable() error {
+	if t.raftNode != nil && !t.raftNode.IsLeader() {
+		return ErrNotLeader
+	}
+	return nil
+}
 
 var nextTxNum atomic.Uint64
 
@@ -65,7 +75,7 @@ func (t *Transaction) TxNum() uint64 {
 
 func (t *Transaction) Commit() error {
 	defer t.concurrencyManager.Release()
-	if t.raftNode != nil {
+	if t.raftNode != nil && len(t.recoveryManager.PendingRecords()) > 0 {
 		cmd := &dbraft.Command{
 			TxNum:   t.state.txNum,
 			Records: t.recoveryManager.PendingRecords(),
@@ -77,10 +87,9 @@ func (t *Transaction) Commit() error {
 		if err := t.raftNode.Apply(data); err != nil {
 			return fmt.Errorf("raft apply for transaction %d: %w", t.state.txNum, err)
 		}
-	} else {
-		if err := t.recoveryManager.Commit(); err != nil {
-			return fmt.Errorf("commit transaction %d: %w", t.state.txNum, err)
-		}
+	}
+	if err := t.recoveryManager.Commit(); err != nil {
+		return fmt.Errorf("commit transaction %d: %w", t.state.txNum, err)
 	}
 	t.myBufferList.UnpinAll()
 	slog.Debug("transaction committed", slog.Uint64("txnum", t.state.txNum))
@@ -133,6 +142,9 @@ func (t *Transaction) GetInt(ctx context.Context, blk dbfile.BlockID, offset int
 // valを指定のblock/offsetに書き込む
 // あくまでbuffer上でメモリに乗せるだけ。disk書き込みはまだ
 func (t *Transaction) SetInt(ctx context.Context, blk dbfile.BlockID, offset, val int, okToLog bool) error {
+	if err := t.checkWritable(); err != nil {
+		return err
+	}
 	if err := t.concurrencyManager.XLock(ctx, blk); err != nil {
 		return fmt.Errorf("acquire exclusive lock on block %s: %w", blk, err)
 	}
@@ -164,6 +176,9 @@ func (t *Transaction) GetString(ctx context.Context, blk dbfile.BlockID, offset 
 }
 
 func (t *Transaction) SetString(ctx context.Context, blk dbfile.BlockID, offset int, val string, okToLog bool) error {
+	if err := t.checkWritable(); err != nil {
+		return err
+	}
 	if err := t.concurrencyManager.XLock(ctx, blk); err != nil {
 		return fmt.Errorf("acquire exclusive lock on block %s: %w", blk, err)
 	}

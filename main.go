@@ -14,6 +14,7 @@ import (
 	"github.com/chzyer/readline"
 	"github.com/teru01/simpledb-go/dbbuffer"
 	"github.com/teru01/simpledb-go/dbexecutor"
+	"github.com/teru01/simpledb-go/dbfile"
 	"github.com/teru01/simpledb-go/dbraft"
 	"github.com/teru01/simpledb-go/dbserver"
 )
@@ -40,7 +41,7 @@ func main() {
 	ctx := context.Background()
 
 	if nodeID := os.Getenv("NODE_ID"); nodeID != "" {
-		raftNode, err := initRaft(nodeID, dirName, db.BufferManager())
+		raftNode, err := initRaft(nodeID, dirName, db.BufferManager(), db.FileManager())
 		if err != nil {
 			slog.Error("failed to initialize raft", "error", err)
 			os.Exit(1)
@@ -173,14 +174,14 @@ func waitForLeader(rn *dbraft.RaftNode) {
 	}
 }
 
-func initRaft(nodeID string, dirName string, bm *dbbuffer.BufferManager) (*dbraft.RaftNode, error) {
+func initRaft(nodeID string, dirName string, bm *dbbuffer.BufferManager, fm *dbfile.FileManager) (*dbraft.RaftNode, error) {
 	nodeAddr := getEnvOrDefault("NODE_ADDR", ":9001")
 	var peers []string
 	if p := os.Getenv("PEERS"); p != "" {
 		peers = strings.Split(p, ",")
 	}
 	raftDir := filepath.Join(dirName, "raft")
-	fsm := dbraft.NewFSM(bm)
+	fsm := dbraft.NewFSM(bm, fm)
 	transport := dbraft.NewNetRPCTransport()
 	return dbraft.NewRaftNode(dbraft.Config{
 		ID:        nodeID,

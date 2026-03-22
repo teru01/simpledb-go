@@ -66,6 +66,10 @@ func (s *SimpleDB) BufferManager() *dbbuffer.BufferManager {
 	return s.bufferManager
 }
 
+func (s *SimpleDB) FileManager() *dbfile.FileManager {
+	return s.fileManager
+}
+
 func (s *SimpleDB) SetRaftNode(rn *dbraft.RaftNode) {
 	s.raftNode = rn
 }

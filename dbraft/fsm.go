@@ -49,10 +49,11 @@ func UnmarshalCommand(data []byte) (*Command, error) {
 
 type FSM struct {
 	bufferManager *dbbuffer.BufferManager
+	fileManager   *dbfile.FileManager
 }
 
-func NewFSM(bm *dbbuffer.BufferManager) *FSM {
-	return &FSM{bufferManager: bm}
+func NewFSM(bm *dbbuffer.BufferManager, fm *dbfile.FileManager) *FSM {
+	return &FSM{bufferManager: bm, fileManager: fm}
 }
 
 func (f *FSM) Apply(ctx context.Context, data []byte, isLeader bool) error {
@@ -69,6 +70,9 @@ func (f *FSM) Apply(ctx context.Context, data []byte, isLeader bool) error {
 	}
 
 	for _, rec := range cmd.Records {
+		if err := f.ensureBlockExists(rec.FileName, rec.BlockNum); err != nil {
+			return fmt.Errorf("ensure block exists for %s block %d: %w", rec.FileName, rec.BlockNum, err)
+		}
 		blk := dbfile.NewBlockID(rec.FileName, rec.BlockNum)
 		buf, err := f.bufferManager.Pin(ctx, blk)
 		if err != nil {
@@ -91,4 +95,18 @@ func (f *FSM) Apply(ctx context.Context, data []byte, isLeader bool) error {
 	}
 
 	return f.bufferManager.FlushAll(cmd.TxNum)
+}
+
+func (f *FSM) ensureBlockExists(fileName string, blockNum int) error {
+	length, err := f.fileManager.FileBlockLength(fileName)
+	if err != nil {
+		return fmt.Errorf("get file block length for %q: %w", fileName, err)
+	}
+	for length <= blockNum {
+		if _, err := f.fileManager.Append(fileName); err != nil {
+			return fmt.Errorf("append block to %q: %w", fileName, err)
+		}
+		length++
+	}
+	return nil
 }
