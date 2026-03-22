@@ -295,7 +295,7 @@ func updateTag(sql string, n int) string {
 	lower := strings.ToLower(sql)
 	switch {
 	case strings.HasPrefix(lower, "insert"):
-		return fmt.Sprintf("INSERT %d", n)
+		return fmt.Sprintf("INSERT 0 %d", n)
 	case strings.HasPrefix(lower, "update"):
 		return fmt.Sprintf("UPDATE %d", n)
 	case strings.HasPrefix(lower, "delete"):
