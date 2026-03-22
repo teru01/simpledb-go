@@ -89,6 +89,7 @@ func (bm *BufferManager) PinPermanent(ctx context.Context, blk dbfile.BlockID) (
 	return buf, nil
 }
 
+// blockを紐付けたbufferを返す。ファイルがない場合は作成
 func (bm *BufferManager) Pin(ctx context.Context, blk dbfile.BlockID) (*Buffer, error) {
 	// 最大max_timeまつ
 	// tryToPinが失敗したら1つunpinされるのを待つ

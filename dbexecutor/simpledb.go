@@ -8,15 +8,19 @@ import (
 	"strings"
 
 	"os"
+	"time"
 
 	"github.com/teru01/simpledb-go/dbbuffer"
 	"github.com/teru01/simpledb-go/dbfile"
 	"github.com/teru01/simpledb-go/dblog"
 	"github.com/teru01/simpledb-go/dbmetadata"
 	"github.com/teru01/simpledb-go/dbplan"
+	"github.com/teru01/simpledb-go/dbraft"
 	"github.com/teru01/simpledb-go/dbrecord"
 	"github.com/teru01/simpledb-go/dbtx"
 )
+
+const followerInitRetryInterval = 200 * time.Millisecond
 
 type ExecuteResult struct {
 	// Tag is the command tag (e.g. "SELECT 3", "INSERT 0 1", "CREATE TABLE", "BEGIN", "COMMIT").
@@ -35,6 +39,7 @@ type SimpleDB struct {
 	bufferManager   *dbbuffer.BufferManager
 	metadataManager *dbmetadata.MetadataManager
 	planner         *dbplan.Planner
+	raftNode        *dbraft.RaftNode
 	explicitTx      *dbtx.Transaction
 }
 
@@ -57,8 +62,28 @@ func NewSimpleDB(dirName string, blockSize, bufferSize int) (*SimpleDB, func(), 
 	}, nil
 }
 
+func (s *SimpleDB) BufferManager() *dbbuffer.BufferManager {
+	return s.bufferManager
+}
+
+func (s *SimpleDB) SetRaftNode(rn *dbraft.RaftNode) {
+	s.raftNode = rn
+}
+
+func (s *SimpleDB) newTx() (*dbtx.Transaction, error) {
+	var opts []dbtx.TxOption
+	if s.raftNode != nil {
+		opts = append(opts, dbtx.WithRaftNode(s.raftNode))
+	}
+	return dbtx.NewTransaction(s.fileManager, s.logManager, s.bufferManager, opts...)
+}
+
+func (s *SimpleDB) newLocalTx() (*dbtx.Transaction, error) {
+	return dbtx.NewTransaction(s.fileManager, s.logManager, s.bufferManager)
+}
+
 func (s *SimpleDB) Init(ctx context.Context) error {
-	tx, err := dbtx.NewTransaction(s.fileManager, s.logManager, s.bufferManager)
+	tx, err := s.newTx()
 	if err != nil {
 		return fmt.Errorf("create transaction: %w", err)
 	}
@@ -88,9 +113,51 @@ func (s *SimpleDB) Init(ctx context.Context) error {
 	return nil
 }
 
+func (s *SimpleDB) InitFollower(ctx context.Context) error {
+	for {
+		tx, err := s.newLocalTx()
+		if err != nil {
+			return fmt.Errorf("create local transaction: %w", err)
+		}
+		size, err := tx.Size(ctx, dbrecord.TableFileName(dbmetadata.TableCatalogTableName))
+		if err != nil {
+			if rbErr := tx.Rollback(ctx); rbErr != nil {
+				slog.Error("rollback failed", "error", rbErr)
+			}
+			time.Sleep(followerInitRetryInterval)
+			continue
+		}
+		if size == 0 {
+			if rbErr := tx.Rollback(ctx); rbErr != nil {
+				slog.Error("rollback failed", "error", rbErr)
+			}
+			slog.Info("waiting for metadata replication from leader...")
+			time.Sleep(followerInitRetryInterval)
+			continue
+		}
+		m, err := dbmetadata.NewMetadataManager(ctx, false, tx)
+		if err != nil {
+			if rbErr := tx.Rollback(ctx); rbErr != nil {
+				slog.Error("rollback failed", "error", rbErr)
+			}
+			time.Sleep(followerInitRetryInterval)
+			continue
+		}
+		s.metadataManager = m
+		qp := dbplan.NewQueryPlanner(s.metadataManager)
+		up := dbplan.NewIndexUpdatePlanner(s.metadataManager)
+		s.planner = dbplan.NewPlanner(qp, up)
+		if err := tx.Commit(); err != nil {
+			return fmt.Errorf("commit follower init transaction: %w", err)
+		}
+		slog.Info("follower initialized from replicated metadata")
+		return nil
+	}
+}
+
 func (s *SimpleDB) Execute(ctx context.Context, sql string) (*ExecuteResult, error) {
 	if matchStartTx(sql) {
-		tx, err := dbtx.NewTransaction(s.fileManager, s.logManager, s.bufferManager)
+		tx, err := s.newTx()
 		if err != nil {
 			return nil, fmt.Errorf("create transaction: %w", err)
 		}
@@ -123,7 +190,7 @@ func (s *SimpleDB) Execute(ctx context.Context, sql string) (*ExecuteResult, err
 	if s.explicitTx != nil {
 		tx = s.explicitTx
 	} else {
-		tx, err = dbtx.NewTransaction(s.fileManager, s.logManager, s.bufferManager)
+		tx, err = s.newTx()
 		if err != nil {
 			return nil, fmt.Errorf("create transaction: %w", err)
 		}

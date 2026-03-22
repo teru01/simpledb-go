@@ -6,14 +6,16 @@ import (
 
 	"github.com/teru01/simpledb-go/dbbuffer"
 	"github.com/teru01/simpledb-go/dblog"
+	"github.com/teru01/simpledb-go/dbraft"
 )
 
 // 個々のtxが独立したインスタンスを持つ
 type RecoveryManager struct {
-	logManager    *dblog.LogManager
-	bufferManager *dbbuffer.BufferManager
-	tx            *Transaction
-	txNum         uint64
+	logManager     *dblog.LogManager
+	bufferManager  *dbbuffer.BufferManager
+	tx             *Transaction
+	txNum          uint64
+	pendingRecords []dbraft.WALRecord
 }
 
 func NewRecoveryManager(tx *Transaction, txNum uint64, logManager *dblog.LogManager, bufferManager *dbbuffer.BufferManager) (*RecoveryManager, error) {
@@ -124,11 +126,31 @@ func (rm *RecoveryManager) doRecover(ctx context.Context) error {
 func (rm *RecoveryManager) SetInt(buf *dbbuffer.Buffer, offset, val int) (int, error) {
 	oldVal := buf.Contents().GetInt(offset)
 	blk := buf.BlockID()
+	rm.pendingRecords = append(rm.pendingRecords, dbraft.WALRecord{
+		Op:        dbraft.OpSetInt,
+		FileName:  blk.FileName(),
+		BlockNum:  blk.BlockNum(),
+		Offset:    offset,
+		IntOldVal: oldVal,
+		IntNewVal: val,
+	})
 	return WriteIntToLog(rm.logManager, rm.txNum, blk, offset, oldVal, val)
 }
 
 func (rm *RecoveryManager) SetString(buf *dbbuffer.Buffer, offset int, val string) (int, error) {
 	oldVal := buf.Contents().GetString(offset)
 	blk := buf.BlockID()
+	rm.pendingRecords = append(rm.pendingRecords, dbraft.WALRecord{
+		Op:        dbraft.OpSetString,
+		FileName:  blk.FileName(),
+		BlockNum:  blk.BlockNum(),
+		Offset:    offset,
+		StrOldVal: oldVal,
+		StrNewVal: val,
+	})
 	return WriteStringToLog(rm.logManager, rm.txNum, blk, offset, oldVal, val)
+}
+
+func (rm *RecoveryManager) PendingRecords() []dbraft.WALRecord {
+	return rm.pendingRecords
 }

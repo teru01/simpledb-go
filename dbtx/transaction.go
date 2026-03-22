@@ -9,6 +9,7 @@ import (
 	"github.com/teru01/simpledb-go/dbbuffer"
 	"github.com/teru01/simpledb-go/dbfile"
 	"github.com/teru01/simpledb-go/dblog"
+	"github.com/teru01/simpledb-go/dbraft"
 )
 
 const EndOfFile = -1
@@ -21,6 +22,7 @@ type Transaction struct {
 	bufferManager      *dbbuffer.BufferManager
 	fileManager        *dbfile.FileManager
 	myBufferList       *BufferList
+	raftNode           *dbraft.RaftNode
 	state              transactionState
 }
 
@@ -28,7 +30,15 @@ type transactionState struct {
 	txNum uint64
 }
 
-func NewTransaction(fm *dbfile.FileManager, lm *dblog.LogManager, bm *dbbuffer.BufferManager) (*Transaction, error) {
+type TxOption func(*Transaction)
+
+func WithRaftNode(rn *dbraft.RaftNode) TxOption {
+	return func(tx *Transaction) {
+		tx.raftNode = rn
+	}
+}
+
+func NewTransaction(fm *dbfile.FileManager, lm *dblog.LogManager, bm *dbbuffer.BufferManager, opts ...TxOption) (*Transaction, error) {
 	tx := &Transaction{
 		concurrencyManager: NewConcurrencyManager(),
 		bufferManager:      bm,
@@ -37,6 +47,9 @@ func NewTransaction(fm *dbfile.FileManager, lm *dblog.LogManager, bm *dbbuffer.B
 		state: transactionState{
 			txNum: NextTxNum(),
 		},
+	}
+	for _, opt := range opts {
+		opt(tx)
 	}
 	var err error
 	tx.recoveryManager, err = NewRecoveryManager(tx, tx.state.txNum, lm, bm)
@@ -52,8 +65,22 @@ func (t *Transaction) TxNum() uint64 {
 
 func (t *Transaction) Commit() error {
 	defer t.concurrencyManager.Release()
-	if err := t.recoveryManager.Commit(); err != nil {
-		return fmt.Errorf("commit transaction %d: %w", t.state.txNum, err)
+	if t.raftNode != nil {
+		cmd := &dbraft.Command{
+			TxNum:   t.state.txNum,
+			Records: t.recoveryManager.PendingRecords(),
+		}
+		data, err := dbraft.MarshalCommand(cmd)
+		if err != nil {
+			return fmt.Errorf("marshal raft command for transaction %d: %w", t.state.txNum, err)
+		}
+		if err := t.raftNode.Apply(data); err != nil {
+			return fmt.Errorf("raft apply for transaction %d: %w", t.state.txNum, err)
+		}
+	} else {
+		if err := t.recoveryManager.Commit(); err != nil {
+			return fmt.Errorf("commit transaction %d: %w", t.state.txNum, err)
+		}
 	}
 	t.myBufferList.UnpinAll()
 	slog.Debug("transaction committed", slog.Uint64("txnum", t.state.txNum))

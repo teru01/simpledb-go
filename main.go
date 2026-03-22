@@ -9,9 +9,12 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/chzyer/readline"
+	"github.com/teru01/simpledb-go/dbbuffer"
 	"github.com/teru01/simpledb-go/dbexecutor"
+	"github.com/teru01/simpledb-go/dbraft"
 	"github.com/teru01/simpledb-go/dbserver"
 )
 
@@ -35,9 +38,35 @@ func main() {
 	defer cleanup()
 
 	ctx := context.Background()
-	if err := db.Init(ctx); err != nil {
-		slog.Error("failed to initialize simpledb", "error", err)
-		os.Exit(1)
+
+	if nodeID := os.Getenv("NODE_ID"); nodeID != "" {
+		raftNode, err := initRaft(nodeID, dirName, db.BufferManager())
+		if err != nil {
+			slog.Error("failed to initialize raft", "error", err)
+			os.Exit(1)
+		}
+		defer raftNode.Stop()
+		db.SetRaftNode(raftNode)
+		slog.Info("raft enabled, waiting for leader election...", "nodeID", nodeID)
+		waitForLeader(raftNode)
+		slog.Info("leader elected", "leader", raftNode.LeaderID(), "isLeader", raftNode.IsLeader())
+
+		if raftNode.IsLeader() {
+			if err := db.Init(ctx); err != nil {
+				slog.Error("failed to initialize simpledb as leader", "error", err)
+				os.Exit(1)
+			}
+		} else {
+			if err := db.InitFollower(ctx); err != nil {
+				slog.Error("failed to initialize simpledb as follower", "error", err)
+				os.Exit(1)
+			}
+		}
+	} else {
+		if err := db.Init(ctx); err != nil {
+			slog.Error("failed to initialize simpledb", "error", err)
+			os.Exit(1)
+		}
 	}
 
 	slog.Info("simpledb started", "dir", dirName, "blockSize", blockSize, "bufferSize", bufferSize)
@@ -134,6 +163,33 @@ func padRight(s string, width int) string {
 		return s
 	}
 	return s + strings.Repeat(" ", width-len(s))
+}
+
+const leaderPollInterval = 100 * time.Millisecond
+
+func waitForLeader(rn *dbraft.RaftNode) {
+	for rn.LeaderID() == "" {
+		time.Sleep(leaderPollInterval)
+	}
+}
+
+func initRaft(nodeID string, dirName string, bm *dbbuffer.BufferManager) (*dbraft.RaftNode, error) {
+	nodeAddr := getEnvOrDefault("NODE_ADDR", ":9001")
+	var peers []string
+	if p := os.Getenv("PEERS"); p != "" {
+		peers = strings.Split(p, ",")
+	}
+	raftDir := filepath.Join(dirName, "raft")
+	fsm := dbraft.NewFSM(bm)
+	transport := dbraft.NewNetRPCTransport()
+	return dbraft.NewRaftNode(dbraft.Config{
+		ID:        nodeID,
+		Addr:      nodeAddr,
+		Peers:     peers,
+		DataDir:   raftDir,
+		FSM:       fsm,
+		Transport: transport,
+	})
 }
 
 func getEnvOrDefault(key, defaultVal string) string {
