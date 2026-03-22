@@ -361,9 +361,9 @@ func (n *RaftNode) broadcastAppendEntries() {
 					n.nextIndex[peer] = lastEntry.Index + 1
 					n.confirmedLastIndex[peer] = lastEntry.Index
 				}
-			} else if n.nextIndex[peer] > 1 {
-				// 送信するログの左端を下げていき、peerが持ってる最後のログと繋がるようにする
-				n.nextIndex[peer]--
+			} else {
+				// followerが追いついてないケース。送信するlogの左端を下げて調整する
+				n.nextIndex[peer] = resp.LastLogIndex + 1
 			}
 		}(peer)
 	}
@@ -474,10 +474,10 @@ func (n *RaftNode) HandleAppendEntries(req *AppendEntriesRequest, resp *AppendEn
 	n.resetElection()
 
 	if req.PrevLogIndex > 0 {
-		// リーダーが想定している状態との整合性チェック
 		entry, ok := n.log.GetEntry(req.PrevLogIndex)
 		if !ok || entry.Term != req.PrevLogTerm {
 			resp.Term = n.currentTerm
+			resp.LastLogIndex = n.log.LastIndex()
 			n.mu.Unlock()
 			return nil
 		}

@@ -29,8 +29,9 @@ type AppendEntriesRequest struct {
 }
 
 type AppendEntriesResponse struct {
-	Term    uint64
-	Success bool
+	Term         uint64
+	Success      bool
+	LastLogIndex uint64 // 失敗時: Followerのログ末尾Index
 }
 
 type RPCHandler interface {
