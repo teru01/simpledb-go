@@ -3,6 +3,7 @@ package dbserver
 import (
 	"context"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -10,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/teru01/simpledb-go/dbexecutor"
+	"github.com/teru01/simpledb-go/dbtx"
 )
 
 func StartServer(ctx context.Context, addr string, db *dbexecutor.SimpleDB) error {
@@ -106,7 +108,13 @@ func handleQueryLoop(ctx context.Context, conn net.Conn, db *dbexecutor.SimpleDB
 		result, err := db.Execute(ctx, sql)
 		if err != nil {
 			slog.Error("query execution error", "sql", sql, "error", err)
-			if _, wErr := conn.Write(buildErrorResponse("ERROR", err.Error())); wErr != nil {
+			errMsg := err.Error()
+			if errors.Is(err, dbtx.ErrNotLeader) {
+				if leader := db.LeaderAddr(); leader != "" {
+					errMsg = fmt.Sprintf("MOVED %s: %s", leader, err.Error())
+				}
+			}
+			if _, wErr := conn.Write(buildErrorResponse("ERROR", errMsg)); wErr != nil {
 				return fmt.Errorf("write error response: %w", wErr)
 			}
 			ready := NewMessage(ReadyForQuery, []byte("I"))

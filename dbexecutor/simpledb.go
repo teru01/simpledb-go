@@ -74,6 +74,13 @@ func (s *SimpleDB) SetRaftNode(rn *dbraft.RaftNode) {
 	s.raftNode = rn
 }
 
+func (s *SimpleDB) LeaderAddr() string {
+	if s.raftNode == nil {
+		return ""
+	}
+	return s.raftNode.LeaderID()
+}
+
 func (s *SimpleDB) newTx() (*dbtx.Transaction, error) {
 	var opts []dbtx.TxOption
 	if s.raftNode != nil {
