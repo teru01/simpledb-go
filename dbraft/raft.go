@@ -41,7 +41,7 @@ type RaftNode struct {
 	votedFor    string
 	log         *RaftLog
 	commitIndex uint64 // 過半数ノードに複製して確定したログの最後のIndex
-	lastApplied uint64
+	lastApplied uint64 // 実データにapplyされた最新のindex
 	leaderID    string
 
 	nextIndex          map[string]uint64 // 次にpeerに送るIndex（楽観的な推測）
@@ -210,7 +210,10 @@ func (n *RaftNode) runCandidate() {
 				n.mu.Lock()
 				if n.currentTerm == currentTerm && n.role == Candidate {
 					slog.Info("won election", "id", n.id, "term", currentTerm, "votes", votes)
-					n.becomeLeaderLocked()
+					if err := n.becomeLeaderLocked(); err != nil {
+						slog.Error("failed to persist no-op entry", "err", err)
+						n.role = Follower
+					}
 				}
 				n.mu.Unlock()
 				return
@@ -229,7 +232,7 @@ func (n *RaftNode) runCandidate() {
 	}
 }
 
-func (n *RaftNode) becomeLeaderLocked() {
+func (n *RaftNode) becomeLeaderLocked() error {
 	n.role = Leader
 	n.leaderID = n.id
 	lastIndex := n.log.LastIndex()
@@ -237,7 +240,7 @@ func (n *RaftNode) becomeLeaderLocked() {
 		n.nextIndex[peer] = lastIndex + 1 // リーダー昇格時に自分の持ってる最後のログからピアの持っているログの次を推測している
 		n.confirmedLastIndex[peer] = 0    // ピアが持っていると確証のもてたログ。最初は確証がない
 	}
-	n.log.Append(LogEntry{
+	return n.log.Append(LogEntry{
 		Index: lastIndex + 1,
 		Term:  n.currentTerm,
 		Data:  nil,
@@ -282,7 +285,11 @@ func (n *RaftNode) handleApply(future *applyFuture) {
 		Term:  n.currentTerm,
 		Data:  future.data,
 	}
-	n.log.Append(entry)
+	if err := n.log.Append(entry); err != nil {
+		n.mu.Unlock()
+		future.errCh <- fmt.Errorf("persist log entry: %w", err)
+		return
+	}
 	n.mu.Unlock()
 
 	n.broadcastAppendEntries()
@@ -467,6 +474,7 @@ func (n *RaftNode) HandleAppendEntries(req *AppendEntriesRequest, resp *AppendEn
 	n.resetElection()
 
 	if req.PrevLogIndex > 0 {
+		// リーダーが想定している状態との整合性チェック
 		entry, ok := n.log.GetEntry(req.PrevLogIndex)
 		if !ok || entry.Term != req.PrevLogTerm {
 			resp.Term = n.currentTerm
@@ -478,10 +486,19 @@ func (n *RaftNode) HandleAppendEntries(req *AppendEntriesRequest, resp *AppendEn
 	for _, entry := range req.Entries {
 		existing, ok := n.log.GetEntry(entry.Index)
 		if ok && existing.Term != entry.Term {
-			n.log.Truncate(entry.Index)
-			n.log.Append(entry)
+			if err := n.log.Truncate(entry.Index); err != nil {
+				n.mu.Unlock()
+				return fmt.Errorf("truncate log at index %d: %w", entry.Index, err)
+			}
+			if err := n.log.Append(entry); err != nil {
+				n.mu.Unlock()
+				return fmt.Errorf("append log entry at index %d: %w", entry.Index, err)
+			}
 		} else if !ok {
-			n.log.Append(entry)
+			if err := n.log.Append(entry); err != nil {
+				n.mu.Unlock()
+				return fmt.Errorf("append log entry at index %d: %w", entry.Index, err)
+			}
 		}
 	}
 
@@ -489,8 +506,13 @@ func (n *RaftNode) HandleAppendEntries(req *AppendEntriesRequest, resp *AppendEn
 	if req.LeaderCommit > n.commitIndex {
 		lastNewIndex := n.log.LastIndex()
 		if req.LeaderCommit < lastNewIndex {
+			// リーダーからのコミットより自ノードに溜まったログの方が最新
+			// 合意確定してないログが溜まってる通常ケース
+			// コミット分をリーダーに合わせる
 			n.commitIndex = req.LeaderCommit
 		} else {
+			// 溜まったログよりリーダーからのコミットの方が最新
+			// 溜まった分だけコミット（フォロワーは遅れてる）
 			n.commitIndex = lastNewIndex
 		}
 	}

@@ -39,10 +39,11 @@ func NewRaftLog(dir string) (*RaftLog, error) {
 	return l, nil
 }
 
-func (l *RaftLog) Append(entries ...LogEntry) {
+func (l *RaftLog) Append(entries ...LogEntry) error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.entries = append(l.entries, entries...)
+	return l.persistLocked()
 }
 
 func (l *RaftLog) GetEntry(index uint64) (LogEntry, bool) {
@@ -84,18 +85,23 @@ func (l *RaftLog) LastTerm() uint64 {
 }
 
 // indexより1つ前のエントリまでを残して切り詰め
-func (l *RaftLog) Truncate(index uint64) {
+func (l *RaftLog) Truncate(index uint64) error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	if index == 0 || index > uint64(len(l.entries)) {
-		return
+		return nil
 	}
 	l.entries = l.entries[:index-1]
+	return l.persistLocked()
 }
 
 func (l *RaftLog) Persist() error {
 	l.mu.RLock()
 	defer l.mu.RUnlock()
+	return l.persistLocked()
+}
+
+func (l *RaftLog) persistLocked() error {
 	data, err := json.Marshal(l.entries)
 	if err != nil {
 		return fmt.Errorf("marshal log entries: %w", err)
