@@ -57,7 +57,12 @@ func (s *RaftRPCService) AppendEntries(req *AppendEntriesRequest, resp *AppendEn
 	return s.handler.HandleAppendEntries(req, resp)
 }
 
-const rpcTimeout = 1 * time.Second
+const (
+	rpcTimeout       = 1 * time.Second
+	rpcServiceName   = "Raft"
+	rpcRequestVote   = rpcServiceName + ".RequestVote"
+	rpcAppendEntries = rpcServiceName + ".AppendEntries"
+)
 
 type NetRPCTransport struct {
 	listener net.Listener
@@ -69,7 +74,7 @@ func NewNetRPCTransport() *NetRPCTransport {
 
 func (t *NetRPCTransport) Start(addr string, handler RPCHandler) error {
 	server := rpc.NewServer()
-	if err := server.RegisterName("Raft", &RaftRPCService{handler: handler}); err != nil {
+	if err := server.RegisterName(rpcServiceName, &RaftRPCService{handler: handler}); err != nil {
 		return fmt.Errorf("register rpc service: %w", err)
 	}
 	listener, err := net.Listen("tcp", addr)
@@ -104,7 +109,7 @@ func (t *NetRPCTransport) RequestVote(target string, req *RequestVoteRequest) (*
 	}
 	defer client.Close()
 	resp := &RequestVoteResponse{}
-	if err := client.Call("Raft.RequestVote", req, resp); err != nil {
+	if err := client.Call(rpcRequestVote, req, resp); err != nil {
 		return nil, fmt.Errorf("call RequestVote on %s: %w", target, err)
 	}
 	return resp, nil
@@ -117,7 +122,7 @@ func (t *NetRPCTransport) AppendEntries(target string, req *AppendEntriesRequest
 	}
 	defer client.Close()
 	resp := &AppendEntriesResponse{}
-	if err := client.Call("Raft.AppendEntries", req, resp); err != nil {
+	if err := client.Call(rpcAppendEntries, req, resp); err != nil {
 		return nil, fmt.Errorf("call AppendEntries on %s: %w", target, err)
 	}
 	return resp, nil

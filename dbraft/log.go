@@ -8,6 +8,11 @@ import (
 	"sync"
 )
 
+const (
+	entriesFile   = "entries.json"
+	hardStateFile = "hard_state.json"
+)
+
 type LogEntry struct {
 	Index uint64
 	Term  uint64
@@ -106,11 +111,11 @@ func (l *RaftLog) persistLocked() error {
 	if err != nil {
 		return fmt.Errorf("marshal log entries: %w", err)
 	}
-	return os.WriteFile(filepath.Join(l.dir, "entries.json"), data, 0644)
+	return os.WriteFile(filepath.Join(l.dir, entriesFile), data, 0644)
 }
 
 func (l *RaftLog) restore() error {
-	path := filepath.Join(l.dir, "entries.json")
+	path := filepath.Join(l.dir, entriesFile)
 	data, err := os.ReadFile(path)
 	if os.IsNotExist(err) {
 		return nil
@@ -126,11 +131,11 @@ func (l *RaftLog) PersistHardState(state HardState) error {
 	if err != nil {
 		return fmt.Errorf("marshal hard state: %w", err)
 	}
-	return os.WriteFile(filepath.Join(l.dir, "hard_state.json"), data, 0644)
+	return os.WriteFile(filepath.Join(l.dir, hardStateFile), data, 0644)
 }
 
 func (l *RaftLog) RestoreHardState() (HardState, error) {
-	path := filepath.Join(l.dir, "hard_state.json")
+	path := filepath.Join(l.dir, hardStateFile)
 	data, err := os.ReadFile(path)
 	if os.IsNotExist(err) {
 		return HardState{}, nil

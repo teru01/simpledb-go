@@ -18,6 +18,9 @@ const (
 	Follower Role = iota
 	Candidate
 	Leader
+
+	electionTimeout   = 1000 * time.Millisecond
+	heartbeatInterval = 100 * time.Millisecond
 )
 
 func (r Role) String() string {
@@ -51,9 +54,6 @@ type RaftNode struct {
 	fsm       *FSM
 	transport Transport
 
-	electionTimeout   time.Duration
-	heartbeatInterval time.Duration
-
 	resetElectionCh chan struct{}
 	applyCh         chan *applyFuture
 	stopCh          chan struct{}
@@ -65,14 +65,12 @@ type applyFuture struct {
 }
 
 type Config struct {
-	ID                string
-	Addr              string
-	Peers             []string
-	DataDir           string
-	FSM               *FSM
-	Transport         Transport
-	ElectionTimeout   time.Duration
-	HeartbeatInterval time.Duration
+	ID        string
+	Addr      string
+	Peers     []string
+	DataDir   string
+	FSM       *FSM
+	Transport Transport
 }
 
 func NewRaftNode(cfg Config) (*RaftNode, error) {
@@ -83,13 +81,11 @@ func NewRaftNode(cfg Config) (*RaftNode, error) {
 
 	node := &RaftNode{
 		id:                 cfg.ID,
-		role:               Follower, // 最初は必ずフォロワー
+		role:               Follower,
 		log:                raftLog,
 		peers:              cfg.Peers,
 		fsm:                cfg.FSM,
 		transport:          cfg.Transport,
-		electionTimeout:    cfg.ElectionTimeout,
-		heartbeatInterval:  cfg.HeartbeatInterval,
 		resetElectionCh:    make(chan struct{}, 1),
 		applyCh:            make(chan *applyFuture, 64),
 		stopCh:             make(chan struct{}),
@@ -249,7 +245,7 @@ func (n *RaftNode) becomeLeaderLocked() error {
 
 // リーダーとして振る舞う
 func (n *RaftNode) runLeader() {
-	ticker := time.NewTicker(n.heartbeatInterval)
+	ticker := time.NewTicker(heartbeatInterval)
 	defer ticker.Stop()
 
 	n.broadcastAppendEntries()
@@ -366,6 +362,7 @@ func (n *RaftNode) broadcastAppendEntries() {
 					n.confirmedLastIndex[peer] = lastEntry.Index
 				}
 			} else if n.nextIndex[peer] > 1 {
+				// 送信するログの左端を下げていき、peerが持ってる最後のログと繋がるようにする
 				n.nextIndex[peer]--
 			}
 		}(peer)
@@ -382,6 +379,7 @@ func (n *RaftNode) advanceCommitIndex() {
 	for idx := n.commitIndex + 1; idx <= n.log.LastIndex(); idx++ {
 		entry, ok := n.log.GetEntry(idx)
 		if !ok || entry.Term != n.currentTerm {
+			// 前のTermのエントリを直接コミットしてはいけない（現在のタームでコミットできれば連鎖的にコミットされるのでそれを待つ）
 			continue
 		}
 		count := 1
@@ -396,7 +394,7 @@ func (n *RaftNode) advanceCommitIndex() {
 	}
 	n.mu.Unlock()
 
-	// no-opエントリのFSM適用（Leader自身が適用する）
+	// 実際のデータに適応
 	for idx := oldCommitIndex + 1; idx <= n.commitIndex; idx++ {
 		entry, ok := n.log.GetEntry(idx)
 		if !ok {
@@ -418,6 +416,7 @@ func (n *RaftNode) advanceCommitIndex() {
 	}
 }
 
+// 投票リクエストに答える
 func (n *RaftNode) HandleRequestVote(req *RequestVoteRequest, resp *RequestVoteResponse) error {
 	n.mu.Lock()
 	defer n.mu.Unlock()
@@ -426,10 +425,12 @@ func (n *RaftNode) HandleRequestVote(req *RequestVoteRequest, resp *RequestVoteR
 	resp.VoteGranted = false
 
 	if req.Term < n.currentTerm {
+		// 自分より古いタームの候補者には投票しない
 		return nil
 	}
 
 	if req.Term > n.currentTerm {
+		// 自分より新しいタームの候補者がいればfollowerになる（votedForもリセットされる）
 		n.stepDownLocked(req.Term)
 	}
 
@@ -455,7 +456,6 @@ func (n *RaftNode) HandleRequestVote(req *RequestVoteRequest, resp *RequestVoteR
 // follower上で呼び出される
 func (n *RaftNode) HandleAppendEntries(req *AppendEntriesRequest, resp *AppendEntriesResponse) error {
 	n.mu.Lock()
-
 	resp.Term = n.currentTerm
 	resp.Success = false
 
@@ -522,6 +522,7 @@ func (n *RaftNode) HandleAppendEntries(req *AppendEntriesRequest, resp *AppendEn
 	resp.Success = true
 	n.mu.Unlock()
 
+	// 実際のデータに適応
 	for idx := oldCommitIndex + 1; idx <= newCommitIndex; idx++ {
 		entry, ok := n.log.GetEntry(idx)
 		if !ok {
@@ -585,7 +586,7 @@ func (n *RaftNode) Stop() {
 	n.log.Persist()
 }
 
-// フォロワーに降りてtermを更新
+// フォロワーに降りてtermを更新。投票先をリセットして永続化
 func (n *RaftNode) stepDownLocked(term uint64) {
 	n.currentTerm = term
 	n.role = Follower
@@ -612,5 +613,5 @@ func (n *RaftNode) resetElection() {
 
 // 選挙時のランダムなタイムアウト、これによって他のノードとタイミングをずらして成功率を高める
 func (n *RaftNode) randomElectionTimeout() time.Duration {
-	return n.electionTimeout + time.Duration(rand.Int64N(int64(n.electionTimeout)))
+	return electionTimeout + time.Duration(rand.Int64N(int64(electionTimeout)))
 }
