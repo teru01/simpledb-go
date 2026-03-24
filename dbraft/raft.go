@@ -44,11 +44,10 @@ type RaftNode struct {
 	votedFor    string
 	log         *RaftLog
 	commitIndex uint64 // 過半数ノードに複製して確定したログの最後のIndex
-	lastApplied uint64 // 実データにapplyされた最新のindex
 	leaderID    string
 
-	nextIndex          map[string]uint64 // 次にpeerに送るIndex（楽観的な推測）
-	confirmedLastIndex map[string]uint64 // peerが複製済みと確認できた最後のIndex
+	nextIndex  map[string]uint64 // 次にpeerに送るIndex（楽観的な推測）
+	matchIndex map[string]uint64 // peerが複製済みと確認できた最後のIndex
 
 	peers     []string
 	fsm       *FSM
@@ -80,17 +79,17 @@ func NewRaftNode(cfg Config) (*RaftNode, error) {
 	}
 
 	node := &RaftNode{
-		id:                 cfg.ID,
-		role:               Follower,
-		log:                raftLog,
-		peers:              cfg.Peers,
-		fsm:                cfg.FSM,
-		transport:          cfg.Transport,
-		resetElectionCh:    make(chan struct{}, 1),
-		applyCh:            make(chan *applyFuture, 64),
-		stopCh:             make(chan struct{}),
-		nextIndex:          make(map[string]uint64),
-		confirmedLastIndex: make(map[string]uint64),
+		id:              cfg.ID,
+		role:            Follower,
+		log:             raftLog,
+		peers:           cfg.Peers,
+		fsm:             cfg.FSM,
+		transport:       cfg.Transport,
+		resetElectionCh: make(chan struct{}, 1),
+		applyCh:         make(chan *applyFuture, 64),
+		stopCh:          make(chan struct{}),
+		nextIndex:       make(map[string]uint64),
+		matchIndex:      make(map[string]uint64),
 	}
 
 	state, err := raftLog.RestoreHardState()
@@ -192,6 +191,7 @@ func (n *RaftNode) runCandidate() {
 	total := len(n.peers) + 1
 	needed := total/2 + 1
 	responded := 0
+	electionTimer := time.After(n.randomElectionTimeout())
 	for {
 		select {
 		case <-n.stopCh:
@@ -202,7 +202,6 @@ func (n *RaftNode) runCandidate() {
 				votes++
 			}
 			if votes >= needed {
-				// リーダー昇格
 				n.mu.Lock()
 				if n.currentTerm == currentTerm && n.role == Candidate {
 					slog.Info("won election", "id", n.id, "term", currentTerm, "votes", votes)
@@ -222,7 +221,7 @@ func (n *RaftNode) runCandidate() {
 				n.mu.Unlock()
 				return
 			}
-		case <-time.After(n.randomElectionTimeout()):
+		case <-electionTimer:
 			return
 		}
 	}
@@ -234,7 +233,7 @@ func (n *RaftNode) becomeLeaderLocked() error {
 	lastIndex := n.log.LastIndex()
 	for _, peer := range n.peers {
 		n.nextIndex[peer] = lastIndex + 1 // リーダー昇格時に自分の持ってる最後のログからピアの持っているログの次を推測している
-		n.confirmedLastIndex[peer] = 0    // ピアが持っていると確証のもてたログ。最初は確証がない
+		n.matchIndex[peer] = 0            // ピアが持っていると確証のもてたログ。最初は確証がない
 	}
 	return n.log.Append(LogEntry{
 		Index: lastIndex + 1,
@@ -299,11 +298,7 @@ func (n *RaftNode) handleApply(future *applyFuture) {
 		return
 	}
 
-	future.errCh <- n.fsm.Apply(context.Background(), entry.Data, true)
-
-	n.mu.Lock()
-	n.lastApplied = entry.Index
-	n.mu.Unlock()
+	future.errCh <- nil
 }
 
 // 全followerにログを送り、応答を待ってからcommitIndexを更新する
@@ -359,7 +354,7 @@ func (n *RaftNode) broadcastAppendEntries() {
 				if len(entries) > 0 {
 					lastEntry := entries[len(entries)-1]
 					n.nextIndex[peer] = lastEntry.Index + 1
-					n.confirmedLastIndex[peer] = lastEntry.Index
+					n.matchIndex[peer] = lastEntry.Index
 				}
 			} else {
 				// followerが追いついてないケース。送信するlogの左端を下げて調整する
@@ -372,7 +367,7 @@ func (n *RaftNode) broadcastAppendEntries() {
 	n.advanceCommitIndex()
 }
 
-// confirmedLastIndexを見て過半数に複製済みのIndexをcommitIndexに反映する
+// matchIndexを見て過半数に複製済みのIndexをcommitIndexに反映する
 func (n *RaftNode) advanceCommitIndex() {
 	n.mu.Lock()
 	oldCommitIndex := n.commitIndex
@@ -384,7 +379,7 @@ func (n *RaftNode) advanceCommitIndex() {
 		}
 		count := 1
 		for _, peer := range n.peers {
-			if n.confirmedLastIndex[peer] >= idx {
+			if n.matchIndex[peer] >= idx {
 				count++
 			}
 		}
@@ -392,27 +387,21 @@ func (n *RaftNode) advanceCommitIndex() {
 			n.commitIndex = idx
 		}
 	}
+	newCommitIndex := n.commitIndex
 	n.mu.Unlock()
 
-	// 実際のデータに適応
-	for idx := oldCommitIndex + 1; idx <= n.commitIndex; idx++ {
+	for idx := oldCommitIndex + 1; idx <= newCommitIndex; idx++ {
 		entry, ok := n.log.GetEntry(idx)
 		if !ok {
 			break
 		}
 		if entry.Data == nil {
-			n.mu.Lock()
-			n.lastApplied = idx
-			n.mu.Unlock()
 			continue
 		}
 		if err := n.fsm.Apply(context.Background(), entry.Data, true); err != nil {
 			slog.Error("failed to apply entry on leader", "index", idx, "err", err)
 			break
 		}
-		n.mu.Lock()
-		n.lastApplied = idx
-		n.mu.Unlock()
 	}
 }
 
@@ -474,10 +463,30 @@ func (n *RaftNode) HandleAppendEntries(req *AppendEntriesRequest, resp *AppendEn
 	n.resetElection()
 
 	if req.PrevLogIndex > 0 {
+		// リーダーは送ろうとしてるログの直前のログが書き込まれたtermについてフォロワーと認識が揃ってるか確認する
+		// 揃ってる: 再起的に全部OK
+		// 揃ってない: リーダーが認識してるログと乖離しているため偽物。リーダーはもっと古いものから送って上書きする。
 		entry, ok := n.log.GetEntry(req.PrevLogIndex)
-		if !ok || entry.Term != req.PrevLogTerm {
+		if !ok {
+			// 直前すら存在してない
 			resp.Term = n.currentTerm
 			resp.LastLogIndex = n.log.LastIndex()
+			n.mu.Unlock()
+			return nil
+		}
+		if entry.Term != req.PrevLogTerm {
+			// 揃ってないケース。巻き戻す
+			conflictTerm := entry.Term
+			idx := req.PrevLogIndex
+			for idx > 1 {
+				prev, ok := n.log.GetEntry(idx - 1)
+				if !ok || prev.Term != conflictTerm {
+					break
+				}
+				idx--
+			}
+			resp.Term = n.currentTerm
+			resp.LastLogIndex = idx - 1
 			n.mu.Unlock()
 			return nil
 		}
@@ -529,18 +538,12 @@ func (n *RaftNode) HandleAppendEntries(req *AppendEntriesRequest, resp *AppendEn
 			break
 		}
 		if entry.Data == nil {
-			n.mu.Lock()
-			n.lastApplied = idx
-			n.mu.Unlock()
 			continue
 		}
 		if err := n.fsm.Apply(context.Background(), entry.Data, false); err != nil {
 			slog.Error("failed to apply entry on follower", "index", idx, "err", err)
 			break
 		}
-		n.mu.Lock()
-		n.lastApplied = idx
-		n.mu.Unlock()
 	}
 
 	return nil

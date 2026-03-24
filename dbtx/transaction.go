@@ -76,6 +76,7 @@ func (t *Transaction) TxNum() uint64 {
 func (t *Transaction) Commit() error {
 	defer t.concurrencyManager.Release()
 	if t.raftNode != nil && len(t.recoveryManager.PendingRecords()) > 0 {
+		// tx内の全ての操作をまとめてencodeし、1つのraft logとする
 		cmd := &dbraft.Command{
 			TxNum:   t.state.txNum,
 			Records: t.recoveryManager.PendingRecords(),
@@ -85,6 +86,10 @@ func (t *Transaction) Commit() error {
 			return fmt.Errorf("marshal raft command for transaction %d: %w", t.state.txNum, err)
 		}
 		if err := t.raftNode.Apply(data); err != nil {
+			if rbErr := t.recoveryManager.Rollback(context.Background()); rbErr != nil {
+				slog.Error("rollback after raft apply failure", "txNum", t.state.txNum, "err", rbErr)
+			}
+			t.myBufferList.UnpinAll()
 			return fmt.Errorf("raft apply for transaction %d: %w", t.state.txNum, err)
 		}
 	}
